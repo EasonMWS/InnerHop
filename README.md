@@ -5,10 +5,10 @@
 不用换掉你习惯的 **Claude Code、Codex CLI、OpenCode、Cline、Roo Code、Cursor、Aider**，只要连上本地 `Orchestrator` 引擎，就能在同一个对话内自动完成：
 
 ```mermaid
-flowchart LR
-    U["你的需求"] --> P["🧠 架构师 Planner<br/>(旗舰强推理模型 · 锁定只读)"]
-    P -- "定稿方案<br/>单流无缝交棒" --> E["⚡ 执行手 Executor<br/>(高速低价模型 · 写代码/跑测试)"]
-    E -- "连续报错 / 达步数 / 遇疑难" --> P
+flowchart TD
+    U["你的需求"] --> P["架构师 Planner（旗舰强模型 · 只读调研与定方案）"]
+    P -- "定稿方案 · 单流无缝交棒" --> E["执行手 Executor（高速低价模型 · 写代码与跑测试）"]
+    E -- "连续报错 / 遇疑难 · 自动回退复盘" --> P
     E -- "验证通过" --> D["返回原 AI 工具界面"]
 ```
 

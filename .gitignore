@@ -1,0 +1,13 @@
+node_modules/
+dist/
+out/
+release/
+.env
+.env.*
+.orchestrator/
+*.log
+*.bak
+*.tmp
+*.local
+.DS_Store
+Thumbs.db

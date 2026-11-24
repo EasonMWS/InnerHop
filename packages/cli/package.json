@@ -1,0 +1,32 @@
+{
+  "name": "@orchestrator/cli",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "CLI launcher and proxy runner (orch) for Orchestrator",
+  "homepage": "https://github.com/EasonMWS/orchestrator#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EasonMWS/orchestrator.git",
+    "directory": "packages/cli"
+  },
+  "keywords": ["ai-agent", "orchestrator", "cli", "claude-code", "codex", "opencode"],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "type": "module",
+  "bin": {
+    "orch": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --clean",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@orchestrator/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  }
+}

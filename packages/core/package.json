@@ -1,0 +1,42 @@
+{
+  "name": "@orchestrator/core",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Stateful dual-model Planner-Executor proxy engine for AI coding harnesses",
+  "homepage": "https://github.com/EasonMWS/orchestrator#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EasonMWS/orchestrator.git",
+    "directory": "packages/core"
+  },
+  "keywords": ["ai-agent", "orchestrator", "llm-proxy", "claude-code", "codex", "opencode"],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

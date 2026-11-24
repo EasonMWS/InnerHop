@@ -3,11 +3,17 @@ import {
   Activity,
   Check,
   Copy,
+  Globe,
   Home,
   KeyRound,
   Layers,
   Sliders,
 } from 'lucide-react';
+import {
+  detectInitialLocale,
+  saveLocale,
+  type Locale,
+} from './i18n';
 import { CockpitPage } from './pages/CockpitPage';
 import { HomePage } from './pages/HomePage';
 import { ModelsPage } from './pages/ModelsPage';
@@ -20,14 +26,23 @@ import type {
 
 type NavTab = 'home' | 'providers' | 'strategies' | 'cockpit';
 
-const TAB_TITLES: Record<NavTab, string> = {
-  home: '控制台 · 引擎状态与工具接入',
-  providers: '模型 API Key · 供应商配置与连通测速',
-  strategies: '编排策略 · 架构师与执行手配对',
-  cockpit: '实时驾驶舱 · 会话流转与费用统计',
+const TAB_TITLES: Record<Locale, Record<NavTab, string>> = {
+  zh: {
+    home: '控制台 · 引擎状态与工具接入',
+    providers: '模型 API Key · 供应商配置与连通测速',
+    strategies: '编排策略 · 架构师与执行手配对',
+    cockpit: '实时驾驶舱 · 会话流转与费用统计',
+  },
+  en: {
+    home: 'Dashboard · Engine Status & Harnesses',
+    providers: 'API Keys · Providers & Connection Test',
+    strategies: 'Strategies · Planner-Executor Rules',
+    cockpit: 'Live Cockpit · Sessions & Cost Savings',
+  },
 };
 
 export const App: React.FC = () => {
+  const [locale, setLocale] = useState<Locale>(() => detectInitialLocale());
   const [tab, setTab] = useState<NavTab>('home');
   const [engine, setEngine] = useState<EngineState>({
     running: true,
@@ -40,22 +55,41 @@ export const App: React.FC = () => {
   const [copiedSidebarUrl, setCopiedSidebarUrl] = useState(false);
 
   const apiBaseUrl = engine.url;
+  const isWin32 =
+    typeof window !== 'undefined' &&
+    (window.orchestratorDesktop?.platform === 'win32' ||
+      navigator.platform.toLowerCase().includes('win'));
 
-  const fetchAll = useCallback(async (baseUrl: string) => {
-    try {
-      const [cfgRes, hRes, sRes] = await Promise.all([
-        fetch(`${baseUrl}/api/config`),
-        fetch(`${baseUrl}/api/harnesses`),
-        fetch(`${baseUrl}/api/sessions`),
-      ]);
-      if (cfgRes.ok) setConfig(await cfgRes.json());
-      if (hRes.ok) setHarnesses(await hRes.json());
-      if (sRes.ok) setSessions(await sRes.json());
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : '无法连接本地编排引擎');
-    }
-  }, []);
+  const toggleLocale = () => {
+    const next: Locale = locale === 'zh' ? 'en' : 'zh';
+    setLocale(next);
+    saveLocale(next);
+  };
+
+  const fetchAll = useCallback(
+    async (baseUrl: string) => {
+      try {
+        const [cfgRes, hRes, sRes] = await Promise.all([
+          fetch(`${baseUrl}/api/config`),
+          fetch(`${baseUrl}/api/harnesses`),
+          fetch(`${baseUrl}/api/sessions`),
+        ]);
+        if (cfgRes.ok) setConfig(await cfgRes.json());
+        if (hRes.ok) setHarnesses(await hRes.json());
+        if (sRes.ok) setSessions(await sRes.json());
+        setLoadError(null);
+      } catch (err) {
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : locale === 'zh'
+              ? '无法连接本地编排引擎'
+              : 'Unable to reach local engine',
+        );
+      }
+    },
+    [locale],
+  );
 
   useEffect(() => {
     let cleanupListener: (() => void) | undefined;
@@ -153,21 +187,34 @@ export const App: React.FC = () => {
     setTimeout(() => setCopiedSidebarUrl(false), 1600);
   };
 
-  const navItems: Array<{ id: NavTab; label: string; icon: React.ReactNode; badge?: number }> = [
-    { id: 'home', label: '首页 · 控制台', icon: <Home className="h-4 w-4" /> },
-    { id: 'providers', label: '模型 API Key', icon: <KeyRound className="h-4 w-4" /> },
-    { id: 'strategies', label: '编排策略', icon: <Sliders className="h-4 w-4" /> },
-    {
-      id: 'cockpit',
-      label: '实时驾驶舱',
-      icon: <Activity className="h-4 w-4" />,
-      badge: sessions.length || undefined,
-    },
-  ];
+  const navItems: Array<{ id: NavTab; label: string; icon: React.ReactNode; badge?: number }> =
+    locale === 'zh'
+      ? [
+          { id: 'home', label: '首页 · 控制台', icon: <Home className="h-4 w-4" /> },
+          { id: 'providers', label: '模型 API Key', icon: <KeyRound className="h-4 w-4" /> },
+          { id: 'strategies', label: '编排策略', icon: <Sliders className="h-4 w-4" /> },
+          {
+            id: 'cockpit',
+            label: '实时驾驶舱',
+            icon: <Activity className="h-4 w-4" />,
+            badge: sessions.length || undefined,
+          },
+        ]
+      : [
+          { id: 'home', label: 'Home · Console', icon: <Home className="h-4 w-4" /> },
+          { id: 'providers', label: 'API Keys', icon: <KeyRound className="h-4 w-4" /> },
+          { id: 'strategies', label: 'Strategies', icon: <Sliders className="h-4 w-4" /> },
+          {
+            id: 'cockpit',
+            label: 'Live Cockpit',
+            icon: <Activity className="h-4 w-4" />,
+            badge: sessions.length || undefined,
+          },
+        ];
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F5F7FB]">
-      {/* 左侧导航栏 */}
+      {/* Sidebar */}
       <aside className="flex w-[236px] shrink-0 flex-col border-r border-slate-200/80 bg-white/95 backdrop-blur-sm">
         <div className="app-drag flex h-14 items-center gap-3 border-b border-slate-100 px-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-sky-500 text-white shadow-sm shadow-indigo-500/20">
@@ -179,11 +226,13 @@ export const App: React.FC = () => {
                 Orchestrator
               </span>
               <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
-                v1.1
+                v0.1.1
               </span>
             </div>
             <div className="truncate text-[11px] text-slate-400">
-              强模型规划 · 快模型落地
+              {locale === 'zh'
+                ? '强模型规划 · 快模型落地'
+                : 'Strong Planner · Fast Executor'}
             </div>
           </div>
         </div>
@@ -218,6 +267,21 @@ export const App: React.FC = () => {
           })}
         </nav>
 
+        <div className="px-3 pb-1">
+          <button
+            onClick={toggleLocale}
+            className="flex w-full items-center justify-between rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <Globe className="h-3.5 w-3.5" />
+              {locale === 'zh' ? '界面语言' : 'Language'}
+            </span>
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+              {locale === 'zh' ? '中文 / EN' : 'EN / 中文'}
+            </span>
+          </button>
+        </div>
+
         <div className="m-3 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 text-[11px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 font-medium text-slate-700">
@@ -226,11 +290,19 @@ export const App: React.FC = () => {
                   engine.running ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
                 }`}
               />
-              <span>{engine.running ? '本地服务运行中' : '引擎已暂停'}</span>
+              <span>
+                {engine.running
+                  ? locale === 'zh'
+                    ? '本地服务运行中'
+                    : 'Local Engine Running'
+                  : locale === 'zh'
+                    ? '引擎已暂停'
+                    : 'Engine Paused'}
+              </span>
             </div>
             <button
               onClick={copySidebarUrl}
-              title="复制 /v1 代理地址"
+              title={locale === 'zh' ? '复制 /v1 代理地址' : 'Copy /v1 proxy URL'}
               className="rounded-md p-1 text-slate-400 hover:bg-white hover:text-indigo-600 cursor-pointer"
             >
               {copiedSidebarUrl ? (
@@ -246,11 +318,15 @@ export const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* 右侧主区域（含顶部集成拖拽栏） */}
+      {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="app-drag flex h-10 shrink-0 items-center justify-between border-b border-slate-200/70 bg-[#F5F7FB]/90 px-6 pr-36 backdrop-blur-sm">
+        <header
+          className={`app-drag flex h-10 shrink-0 items-center justify-between border-b border-slate-200/70 bg-[#F5F7FB]/90 px-6 ${
+            isWin32 ? 'pr-36' : 'pr-6'
+          } backdrop-blur-sm`}
+        >
           <span className="text-xs font-medium text-slate-500">
-            {TAB_TITLES[tab]}
+            {TAB_TITLES[locale][tab]}
           </span>
           <span
             className={`app-no-drag inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
@@ -273,26 +349,35 @@ export const App: React.FC = () => {
             {!engine.running ? (
               <div className="surface-card rounded-2xl p-8 text-center">
                 <h3 className="text-base font-semibold text-slate-900">
-                  Orchestrator 引擎当前已暂停
+                  {locale === 'zh'
+                    ? 'Orchestrator 引擎当前已暂停'
+                    : 'Orchestrator Engine is Paused'}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  点击下方按钮启动本地代理引擎即可恢复双模型编排与模型分流。
+                  {locale === 'zh'
+                    ? '点击下方按钮启动本地代理引擎即可恢复双模型编排与模型分流。'
+                    : 'Click below to start the local proxy and resume dual-model orchestration.'}
                 </p>
                 <button
                   onClick={handleToggleEngine}
                   className="mt-4 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 cursor-pointer shadow-sm"
                 >
-                  启动引擎
+                  {locale === 'zh' ? '启动引擎' : 'Start Engine'}
                 </button>
               </div>
             ) : !config ? (
               <div className="surface-card rounded-2xl p-10 text-center text-sm text-slate-500">
-                {loadError ? `连接引擎失败：${loadError}` : '正在加载配置...'}
+                {loadError
+                  ? `${locale === 'zh' ? '连接引擎失败：' : 'Connection error: '}${loadError}`
+                  : locale === 'zh'
+                    ? '正在加载配置...'
+                    : 'Loading configuration...'}
               </div>
             ) : (
               <>
                 {tab === 'home' && (
                   <HomePage
+                    locale={locale}
                     engine={engine}
                     config={config}
                     harnesses={harnesses}
@@ -306,6 +391,7 @@ export const App: React.FC = () => {
                 )}
                 {(tab === 'providers' || tab === 'strategies') && (
                   <ModelsPage
+                    locale={locale}
                     section={tab}
                     config={config}
                     apiBaseUrl={apiBaseUrl}
@@ -314,6 +400,7 @@ export const App: React.FC = () => {
                 )}
                 {tab === 'cockpit' && (
                   <CockpitPage
+                    locale={locale}
                     config={config}
                     sessions={sessions}
                     apiBaseUrl={apiBaseUrl}

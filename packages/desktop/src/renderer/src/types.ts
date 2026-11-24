@@ -22,6 +22,7 @@ export interface EngineState {
 }
 
 export interface DesktopBridge {
+  platform?: string;
   getEngineStatus: () => Promise<EngineState>;
   toggleEngine: () => Promise<EngineState>;
   openExternal: (url: string) => Promise<void>;

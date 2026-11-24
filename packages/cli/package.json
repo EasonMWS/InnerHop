@@ -1,6 +1,6 @@
 {
   "name": "@orchestrator/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "description": "CLI launcher and proxy runner (orch) for Orchestrator",
   "homepage": "https://github.com/EasonMWS/orchestrator#readme",

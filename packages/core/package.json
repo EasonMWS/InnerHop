@@ -1,6 +1,6 @@
 {
   "name": "@orchestrator/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "description": "Stateful dual-model Planner-Executor proxy engine for AI coding harnesses",
   "homepage": "https://github.com/EasonMWS/orchestrator#readme",

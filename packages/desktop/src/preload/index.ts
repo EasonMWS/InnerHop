@@ -6,6 +6,7 @@ export interface EngineState {
 }
 
 contextBridge.exposeInMainWorld('orchestratorDesktop', {
+  platform: process.platform,
   getEngineStatus: (): Promise<EngineState> => ipcRenderer.invoke('engine:status'),
   toggleEngine: (): Promise<EngineState> => ipcRenderer.invoke('engine:toggle'),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('app:openExternal', url),

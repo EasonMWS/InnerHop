@@ -257,7 +257,8 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  const icon = nativeImage.createFromPath(resolveIconPath()).resize({ width: 16, height: 16 });
+  const iconSize = process.platform === 'darwin' ? 18 : 16;
+  const icon = nativeImage.createFromPath(resolveIconPath()).resize({ width: iconSize, height: iconSize });
   tray = new Tray(icon);
   tray.on('click', showMainWindow);
   tray.on('double-click', showMainWindow);
@@ -301,6 +302,10 @@ if (!gotLock) {
 
     createWindow();
     createTray();
+  });
+
+  app.on('activate', () => {
+    showMainWindow();
   });
 
   app.on('before-quit', (event) => {

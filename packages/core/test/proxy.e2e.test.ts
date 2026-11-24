@@ -533,10 +533,10 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-orchestrator-session': 'openai-chat-sess',
+        'x-innerhop-session': 'openai-chat-sess',
       },
       body: JSON.stringify({
-        model: 'orch:e2e-pair',
+        model: 'ih:e2e-pair',
         stream: true,
         messages: [{ role: 'user', content: 'Fix bug in a.ts' }],
         tools: [
@@ -591,12 +591,12 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
       }),
     });
 
-    expect(bypassRes.headers.get('x-orchestrator-routed')).toBe('bypass');
+    expect(bypassRes.headers.get('x-innerhop-routed')).toBe('bypass');
     await bypassRes.text();
     expect(recordedCalls).toHaveLength(1);
     expect(recordedCalls[0].model).toBe('claude-sonnet-4-5');
     expect(recordedCalls[0].systemText).toBe('Native Claude Code prompt');
-    expect(recordedCalls[0].systemText).not.toContain('<orchestrator_role');
+    expect(recordedCalls[0].systemText).not.toContain('<innerhop_role');
     expect(recordedCalls[0].toolNames).toContain('Edit');
 
     recordedCalls = [];
@@ -605,7 +605,7 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-orchestrator-session': 'slot-trigger-sess',
+        'x-innerhop-session': 'slot-trigger-sess',
       },
       body: JSON.stringify({
         model: 'claude-opus-4-1',
@@ -618,11 +618,11 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
       }),
     });
 
-    expect(triggerRes.headers.get('x-orchestrator-routed')).toBe('orchestrator');
+    expect(triggerRes.headers.get('x-innerhop-routed')).toBe('innerhop');
     await triggerRes.text();
     expect(recordedCalls).toHaveLength(1);
     expect(recordedCalls[0].model).toBe('planner-opus');
-    expect(recordedCalls[0].systemText).toContain('<orchestrator_role');
+    expect(recordedCalls[0].systemText).toContain('<innerhop_role');
     expect(recordedCalls[0].toolNames).not.toContain('Edit');
   });
 
@@ -631,10 +631,10 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-orchestrator-session': 'openai-resp-api-sess',
+        'x-innerhop-session': 'openai-resp-api-sess',
       },
       body: JSON.stringify({
-        model: 'orch:e2e-openai-responses',
+        model: 'ih:e2e-openai-responses',
         stream: true,
         input: 'Patch auth.ts',
         tools: [
@@ -644,7 +644,7 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
       }),
     });
 
-    expect(res.headers.get('x-orchestrator-routed')).toBe('orchestrator');
+    expect(res.headers.get('x-innerhop-routed')).toBe('innerhop');
     const text = await res.text();
     expect(recordedCalls).toHaveLength(2);
     expect(recordedCalls[0].model).toBe('gpt-6-astra');
@@ -672,7 +672,29 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-orchestrator-session': 'custom-pair-sess',
+        'x-innerhop-session': 'custom-pair-sess',
+      },
+      body: JSON.stringify({
+        model: 'innerhop',
+        stream: true,
+        messages: [{ role: 'user', content: 'Update auth' }],
+        tools: [{ name: 'Edit', input_schema: { type: 'object' } }],
+      }),
+    });
+    expect(customRes.status).toBe(200);
+    expect(customRes.headers.get('x-innerhop-routed')).toBe('innerhop');
+    await customRes.text();
+    expect(recordedCalls).toHaveLength(2);
+    expect(recordedCalls[0].model).toBe('planner-opus');
+    expect(recordedCalls[1].model).toBe('executor-flash');
+
+    // Backward compatibility: legacy 'orchestrator' alias still routes to InnerHop
+    recordedCalls = [];
+    const legacyAliasRes = await fetch(`${proxyUrl}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-orchestrator-session': 'legacy-alias-sess',
       },
       body: JSON.stringify({
         model: 'orchestrator',
@@ -681,11 +703,10 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
         tools: [{ name: 'Edit', input_schema: { type: 'object' } }],
       }),
     });
-    expect(customRes.status).toBe(200);
-    await customRes.text();
+    expect(legacyAliasRes.status).toBe(200);
+    expect(legacyAliasRes.headers.get('x-innerhop-routed')).toBe('innerhop');
+    await legacyAliasRes.text();
     expect(recordedCalls).toHaveLength(2);
-    expect(recordedCalls[0].model).toBe('planner-opus');
-    expect(recordedCalls[1].model).toBe('executor-flash');
   });
 
   it('sends max_completion_tokens for OpenAI GPT-5/GPT-6 models and keeps max_tokens for compat models', async () => {

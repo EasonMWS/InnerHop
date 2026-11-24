@@ -223,10 +223,10 @@ export const App: React.FC = () => {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-bold tracking-tight text-slate-900">
-                Orchestrator
+                InnerHop
               </span>
               <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
-                v0.1.1
+                v0.2.0
               </span>
             </div>
             <div className="truncate text-[11px] text-slate-400">

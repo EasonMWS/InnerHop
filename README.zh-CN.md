@@ -1,10 +1,10 @@
 [English](./README.md) | 简体中文
 
-# Orchestrator
+# InnerHop
 
 **给任意 AI 编程工具装上「强模型定方案 + 快模型写代码」的通用双模型本地调度器。**
 
-不用换掉你习惯的 **Claude Code、Codex CLI、OpenCode、Cline、Roo Code、Cursor、Aider**，只要连上本地 `Orchestrator` 引擎，就能在同一个对话内自动完成：
+不用换掉你习惯的 **Claude Code、Codex CLI、OpenCode、Cline、Roo Code、Cursor、Aider**，只要连上本地 `InnerHop` 引擎，就能在同一个对话内自动完成：
 
 ```mermaid
 flowchart TD
@@ -37,25 +37,26 @@ flowchart TD
 
 ### 方式一：桌面端（Windows / macOS / Linux）
 
-1. 前往 [GitHub Releases](https://github.com/EasonMWS/orchestrator/releases) 下载对应系统安装包（或参考文末命令本地打包）：
-   - **Windows**：解压 `Orchestrator-0.1.1-win.zip` 并运行 `Orchestrator.exe`，后台自动在 `http://127.0.0.1:8787` 启动本地引擎。
-   - **macOS / Linux**：可下载 Release 压缩包，或克隆仓库后在对应系统运行 `pnpm desktop:pack:mac`（Apple Silicon & Intel `.dmg`/`.zip`）/ `pnpm desktop:pack:linux`（`.AppImage`/`.tar.gz`）。
+1. 前往 [GitHub Releases](https://github.com/EasonMWS/innerhop/releases) 下载对应系统安装包（或参考文末命令本地打包）：
+   - **Windows**：解压 `InnerHop-0.2.0-win.zip` 并运行 `InnerHop.exe`，后台自动在 `http://127.0.0.1:8787` 启动本地引擎。
+   - **Linux**：解压 `InnerHop-0.2.0-linux-x64.tar.gz` 并运行 `./innerhop`，或在本机运行 `pnpm desktop:pack:linux` 生成 `.AppImage`/`.tar.gz`。
+   - **macOS**：克隆仓库后在 macOS 下运行 `pnpm desktop:pack:mac`（生成 Apple Silicon & Intel `.dmg`/`.zip`）。
 2. 点左侧 **「模型 API Key」**，填入你的官方开发者 API Key 并点 **「测速验 Key」**。
 3. 回到 **「首页 · 控制台」**，在「当前工作模式」选好预设策略或手动搭配模型与思考强度。
 4. 在下方「一键接入我的 AI 编程工具」接入你常用的工具，然后回原工具对话即可。
 
-### 方式二：命令行 CLI
+### 方式二：命令行 CLI（`innerhop` / `ih`）
 
 ```bash
 # 仅对当前终端会话注入本地代理地址，不改动本机全局配置
-orch run claude
-orch run codex
-orch run opencode
-orch run aider
+innerhop run claude
+innerhop run codex
+innerhop run opencode
+innerhop run aider
 
 # 或后台启动本地服务与查看状态
-orch serve --port 8787
-orch status
+innerhop serve --port 8787
+innerhop status
 ```
 
 ---
@@ -67,9 +68,9 @@ orch status
 | 工具 | 接入方式 | 路由与使用说明 |
 | :--- | :--- | :--- |
 | **Claude Code** | 首页点 **「一键接入」**（自动备份 `~/.claude/settings.json`，关闭即 100% 还原） | 智能分流默认仅接管选中的触发关键词（如 `opus` / `opusplan`）；选其他原生模型时直接透传官方 API。 |
-| **Codex CLI** | 首页点 **「一键接入」**（自动备份 `~/.codex/config.toml`） | 在配置末尾写入独立 `[profiles.orchestrator]`，**不影响官方 Codex/ChatGPT 桌面端**；终端执行 `codex -p orchestrator` 使用。 |
-| **OpenCode** | 首页点 **「一键接入」**（自动备份 `~/.config/opencode/opencode.json`） | 自动注入动态别名 `orchestrator` 及全部预设策略 `orch:<策略id>`，保留原有供应商配置。 |
-| **其他 Harness（Cline / Roo Code / Cursor / Aider 等）** | 首页 **「其他 Harness」** 点 **「查看 3 步配置」** | Provider 选 `OpenAI Compatible`，Base URL 填 `http://127.0.0.1:8787/v1`，API Key 填任意占位字符，Model 填 `orchestrator`（跟随当前工作模式）或 `orch:<策略id>`（锁定某条策略）。 |
+| **Codex CLI** | 首页点 **「一键接入」**（自动备份 `~/.codex/config.toml`） | 在配置末尾写入独立 `[profiles.innerhop]`，**不影响官方 Codex/ChatGPT 桌面端**；终端执行 `codex -p innerhop` 使用。 |
+| **OpenCode** | 首页点 **「一键接入」**（自动备份 `~/.config/opencode/opencode.json`） | 自动注入动态别名 `innerhop` 及全部预设策略 `ih:<策略id>`，保留原有供应商配置。 |
+| **其他 Harness（Cline / Roo Code / Cursor / Aider 等）** | 首页 **「其他 Harness」** 点 **「查看 3 步配置」** | Provider 选 `OpenAI Compatible`，Base URL 填 `http://127.0.0.1:8787/v1`，API Key 填任意占位字符（如 `innerhop-local`），Model 填 `innerhop`（跟随当前工作模式）或 `ih:<策略id>`（锁定某条策略）。 |
 
 ---
 
@@ -89,9 +90,9 @@ orch status
 1. **仅支持开发者 API Key 与本地 Ollama**：严禁将消费级订阅（ChatGPT Plus/Pro、Claude Pro/Max）通过第三方代理转发或与 API 混用。本软件底层直接拦截含 `chatgpt-account-id` 等消费级会话凭据的请求并返回 `403`。
 2. **OpenAI Pro 赠金边界提示**：若你的 OpenAI API Key 关联了 ChatGPT Pro 每月赠送的 API 额度，按 OpenAI 条款该额度仅可用于开发者自建工具/第三方 Agent（如 OpenCode / Cline 等），禁止接入 Codex CLI。
 3. **绝对本地化安全边界**：
-   - 默认严格绑定 `127.0.0.1` 回环地址，拒绝外网监听；
+   - 默认严格绑定 `127.0.0.1` 回环地址，拒绝外网监听（如需覆盖需显式设置 `INNERHOP_ALLOW_REMOTE=1`）；
    - 管理接口 `/api/*` 校验浏览器 `Origin`，防止恶意网页窃取本地配置；
-   - 全部 API Key 仅保存于用户本机 `~/.orchestrator/config.json`（代码仓库与打包产物零硬编码凭证），详见 [SECURITY.md](./SECURITY.md)。
+   - 全部 API Key 仅保存于用户本机 `~/.innerhop/config.json`（若存在旧版 `~/.orchestrator/` 配置将自动无损只读迁移，代码仓库与打包产物零硬编码凭证），详见 [SECURITY.md](./SECURITY.md)。
 
 ---
 

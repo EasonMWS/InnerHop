@@ -1,16 +1,16 @@
 {
-  "name": "orchestrator-monorepo",
+  "name": "innerhop-monorepo",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "license": "MIT",
-  "description": "Multi-harness universal dual-model Orchestrator (strong Planner + fast Executor)",
-  "homepage": "https://github.com/EasonMWS/orchestrator#readme",
+  "description": "Multi-harness universal dual-model InnerHop proxy (strong Planner + fast Executor)",
+  "homepage": "https://github.com/EasonMWS/innerhop#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/EasonMWS/orchestrator.git"
+    "url": "https://github.com/EasonMWS/innerhop.git"
   },
   "bugs": {
-    "url": "https://github.com/EasonMWS/orchestrator/issues"
+    "url": "https://github.com/EasonMWS/innerhop/issues"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -18,13 +18,13 @@
   "packageManager": "pnpm@12.5.1",
   "scripts": {
     "build": "pnpm -r --stream build",
-    "test": "pnpm --filter @orchestrator/core test",
+    "test": "pnpm --filter @innerhop/core test",
     "typecheck": "pnpm -r --stream typecheck",
-    "dev": "pnpm --filter @orchestrator/desktop dev",
-    "desktop:dev": "pnpm --filter @orchestrator/desktop dev",
-    "desktop:build": "pnpm --filter @orchestrator/core build && pnpm --filter @orchestrator/desktop build",
-    "desktop:pack": "pnpm --filter @orchestrator/core build && pnpm --filter @orchestrator/desktop pack:win",
-    "desktop:pack:mac": "pnpm --filter @orchestrator/core build && pnpm --filter @orchestrator/desktop pack:mac",
-    "desktop:pack:linux": "pnpm --filter @orchestrator/core build && pnpm --filter @orchestrator/desktop pack:linux"
+    "dev": "pnpm --filter @innerhop/desktop dev",
+    "desktop:dev": "pnpm --filter @innerhop/desktop dev",
+    "desktop:build": "pnpm --filter @innerhop/core build && pnpm --filter @innerhop/desktop build",
+    "desktop:pack": "pnpm --filter @innerhop/core build && pnpm --filter @innerhop/desktop pack:win",
+    "desktop:pack:mac": "pnpm --filter @innerhop/core build && pnpm --filter @innerhop/desktop pack:mac",
+    "desktop:pack:linux": "pnpm --filter @innerhop/core build && pnpm --filter @innerhop/desktop pack:linux"
   }
 }

@@ -715,11 +715,11 @@ export const ModelsPage: React.FC<ModelsPageProps> = ({
               <span>
                 {zh ? (
                   <>
-                    合规模式：仅使用官方开发者 API Key 或本地 Ollama；严禁接入消费级 ChatGPT / Claude 订阅会话，绝不混用官方 API 与订阅额度。所有 Key 仅保存在本机 <code>~/.orchestrator/config.json</code>。
+                    合规模式：仅使用官方开发者 API Key 或本地 Ollama；严禁接入消费级 ChatGPT / Claude 订阅会话，绝不混用官方 API 与订阅额度。所有 Key 仅保存在本机 <code>~/.innerhop/config.json</code>。
                   </>
                 ) : (
                   <>
-                    Compliance Mode: Developer API Keys & local Ollama only. Consumer subscriptions (ChatGPT Plus/Pro, Claude Pro/Max) are strictly excluded. Keys stay locally in <code>~/.orchestrator/config.json</code>.
+                    Compliance Mode: Developer API Keys & local Ollama only. Consumer subscriptions (ChatGPT Plus/Pro, Claude Pro/Max) are strictly excluded. Keys stay locally in <code>~/.innerhop/config.json</code>.
                   </>
                 )}
               </span>

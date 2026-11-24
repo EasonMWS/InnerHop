@@ -5,6 +5,7 @@ release/
 .env
 .env.*
 .orchestrator/
+.innerhop/
 *.log
 *.bak
 *.tmp

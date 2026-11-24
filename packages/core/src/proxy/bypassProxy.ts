@@ -77,7 +77,7 @@ export async function forwardBypassRequest(
       resHeaders.set(key, val);
     }
   });
-  resHeaders.set('x-orchestrator-routed', 'bypass');
+  resHeaders.set('x-innerhop-routed', 'bypass');
 
   return new Response(upstreamRes.body, {
     status: upstreamRes.status,

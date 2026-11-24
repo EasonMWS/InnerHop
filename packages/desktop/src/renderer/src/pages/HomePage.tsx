@@ -367,7 +367,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       )}
 
-      {/* 1. Orchestrator Engine + KPIs */}
+      {/* 1. InnerHop Engine + KPIs */}
       <div className="surface-card relative overflow-hidden rounded-2xl p-5">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-400" />
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -384,7 +384,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-base font-semibold text-slate-900">
-                  {zh ? 'Orchestrator 编排引擎' : 'Orchestrator Engine'}
+                  {zh ? 'InnerHop 编排引擎' : 'InnerHop Engine'}
                 </h2>
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -818,11 +818,11 @@ export const HomePage: React.FC<HomePageProps> = ({
               <p className="mt-0.5 text-xs text-slate-500">
                 {routing.mode === 'smart-split'
                   ? zh
-                    ? '当前为智能分流：只有选 orch:* 或下方触发槽位时才启用双模型，在原 Agent 里选其他模型将 100% 原样直通官方。'
-                    : 'Smart-Split active: only checked models or orch:* enter Orchestrator; all others pass straight through to official APIs.'
+                    ? '当前为智能分流：只有选 ih:* 或下方触发槽位时才启用双模型，在原 Agent 里选其他模型将 100% 原样直通官方。'
+                    : 'Smart-Split active: only checked models or ih:* enter InnerHop; all others pass straight through to official APIs.'
                   : zh
-                    ? '当前为全量接管：接入后的工具所有请求都会经过 Orchestrator 编排引擎。'
-                    : 'Route All active: all requests from connected tools go through Orchestrator.'}
+                    ? '当前为全量接管：接入后的工具所有请求都会经过 InnerHop 编排引擎。'
+                    : 'Route All active: all requests from connected tools go through InnerHop.'}
               </p>
             </div>
           </div>
@@ -863,7 +863,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                     </span>{' '}
                     项关键字触发 + 固定{' '}
                     <code className="rounded bg-slate-100 px-1 py-0.5 text-slate-700">
-                      orchestrator / orch:*
+                      innerhop / ih:*
                     </code>
                     ）：
                   </>
@@ -875,7 +875,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                     </span>{' '}
                     keyword rules + fixed{' '}
                     <code className="rounded bg-slate-100 px-1 py-0.5 text-slate-700">
-                      orchestrator / orch:*
+                      innerhop / ih:*
                     </code>
                     ):
                   </>
@@ -907,13 +907,13 @@ export const HomePage: React.FC<HomePageProps> = ({
                         type="checkbox"
                         checked
                         disabled
-                        aria-label="orchestrator and orch:*"
+                        aria-label="innerhop and ih:*"
                         className="h-4 w-4 rounded border-indigo-300 text-indigo-600 opacity-75"
                       />
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="font-mono font-semibold text-slate-800">
-                        orchestrator / orch:*
+                        innerhop / ih:*
                       </div>
                       <div className="text-[11px] text-slate-400">
                         {zh
@@ -926,7 +926,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                     </td>
                     <td className="px-3 py-2.5">
                       <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
-                        {zh ? '→ 路由到本软件（固定）' : '→ Orchestrator (Always)'}
+                        {zh ? '→ 路由到本软件（固定）' : '→ InnerHop (Always)'}
                       </span>
                     </td>
                   </tr>
@@ -969,7 +969,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                         <td className="px-3 py-2.5">
                           {checked ? (
                             <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
-                              {zh ? '→ 路由到本软件（双模型）' : '→ Orchestrator (Dual-Model)'}
+                              {zh ? '→ 路由到本软件（双模型）' : '→ InnerHop (Dual-Model)'}
                             </span>
                           ) : (
                             <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
@@ -1023,7 +1023,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                         </td>
                         <td className="px-3 py-2.5">
                           <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
-                            {zh ? '→ 路由到本软件（双模型）' : '→ Orchestrator (Dual-Model)'}
+                            {zh ? '→ 路由到本软件（双模型）' : '→ InnerHop (Dual-Model)'}
                           </span>
                         </td>
                       </tr>
@@ -1067,7 +1067,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <>
                   开启前会自动备份原配置；关闭开关可 100% 无损恢复原状。也可直接在终端运行{' '}
                   <code className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">
-                    orch run claude
+                    innerhop run claude
                   </code>
                   。
                 </>
@@ -1075,7 +1075,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <>
                   Automatically backs up existing configs before modifying and restores byte-for-byte when disabled. Or launch directly via{' '}
                   <code className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">
-                    orch run claude
+                    innerhop run claude
                   </code>
                   .
                 </>
@@ -1084,7 +1084,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             <p className="mt-1 text-[11px] text-indigo-700 bg-indigo-50/70 inline-block rounded-lg px-2.5 py-1">
               {zh
                 ? '提示：这里只决定「哪个前台工具连入本软件」，与上方选哪家厂商的模型无关；在任意已接入工具（如 Codex CLI、OpenCode）里都能调度你配好的 Claude / OpenAI / Gemini / DeepSeek 官方 API 模型。'
-                : 'Note: This section only picks which frontend tool connects to Orchestrator — independent from the backend LLM providers selected above (any connected harness can run Claude / OpenAI / Gemini / DeepSeek).'}
+                : 'Note: This section only picks which frontend tool connects to InnerHop — independent from the backend LLM providers selected above (any connected harness can run Claude / OpenAI / Gemini / DeepSeek).'}
             </p>
           </div>
         </div>

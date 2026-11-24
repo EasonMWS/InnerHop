@@ -5,10 +5,10 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@orchestrator/core'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['@innerhop/core'] })],
     resolve: {
       alias: {
-        '@orchestrator/core': resolve(__dirname, '../core/src/index.ts'),
+        '@innerhop/core': resolve(__dirname, '../core/src/index.ts'),
       },
     },
   },

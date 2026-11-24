@@ -5,7 +5,7 @@ import type {
   ProviderConfig,
   ReasoningEffort,
   SessionState,
-} from '@orchestrator/core';
+} from '@innerhop/core';
 
 export type {
   HarnessStatus,

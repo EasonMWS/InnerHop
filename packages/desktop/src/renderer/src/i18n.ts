@@ -97,13 +97,13 @@ export function localizeHarnessText(
       return {
         name: 'OpenAI Codex CLI',
         description:
-          'Writes an isolated [profiles.orchestrator] without touching the official Codex/ChatGPT Desktop app; run `codex -p orchestrator`',
+          'Writes an isolated [profiles.innerhop] without touching the official Codex/ChatGPT Desktop app; run `codex -p innerhop`',
       };
     case 'opencode':
       return {
         name: 'OpenCode',
         description:
-          'Open-source multi-model terminal coding agent (injects orchestrator provider & strategy aliases)',
+          'Open-source multi-model terminal coding agent (injects innerhop provider & strategy aliases)',
       };
     case 'other':
       return {
@@ -112,8 +112,8 @@ export function localizeHarnessText(
           'Cline, Roo Code, Cursor, Windsurf, Aider, or any OpenAI-Compatible client — point it to the local endpoint below',
         guideSteps: [
           'Open your tool’s custom API / Model Provider settings.',
-          'Set Provider to "OpenAI Compatible", paste the Base URL above, and put any non-empty placeholder API Key (e.g. orchestrator-local).',
-          'Set Model ID to "orchestrator" (follows active Home configuration) or a pinned strategy ID like "orch:<id>". Aider users can also run `orch run aider`.',
+          'Set Provider to "OpenAI Compatible", paste the Base URL above, and put any non-empty placeholder API Key (e.g. innerhop-local).',
+          'Set Model ID to "innerhop" (follows active Home configuration) or a pinned strategy ID like "ih:<id>". Aider users can also run `innerhop run aider`.',
         ],
       };
     default:

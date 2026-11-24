@@ -3,8 +3,8 @@ import { VIRTUAL_ESCALATE_TOOL_NAME, VIRTUAL_HANDOFF_TOOL_NAME } from './virtual
 
 export function buildPlannerSystemAddendum(session: SessionState): string {
   const lines: string[] = [
-    '<orchestrator_role phase="PLANNING">',
-    'You are the ARCHITECT / PLANNER in a dual-model Orchestrator loop (Planner designs read-only -> Executor implements -> automatic re-plan on friction).',
+    '<innerhop_role phase="PLANNING">',
+    'You are the ARCHITECT / PLANNER in a dual-model InnerHop loop (Planner designs read-only -> Executor implements -> automatic re-plan on friction).',
     'Rules for PLANNING phase:',
     '1. Only investigate using read-only tools. Write/edit tools are intentionally disabled in this phase.',
     `2. If the user is asking a pure question or explanation that needs no code edits, answer directly in prose without calling \`${VIRTUAL_HANDOFF_TOOL_NAME}\`.`,
@@ -28,14 +28,14 @@ export function buildPlannerSystemAddendum(session: SessionState): string {
     );
   }
 
-  lines.push('</orchestrator_role>');
+  lines.push('</innerhop_role>');
   return lines.join('\n');
 }
 
 export function buildExecutorSystemAddendum(session: SessionState): string {
   const lines: string[] = [
-    '<orchestrator_role phase="EXECUTING">',
-    'You are the EXECUTOR in a dual-model Orchestrator loop. The Architect has finalized the plan below.',
+    '<innerhop_role phase="EXECUTING">',
+    'You are the EXECUTOR in a dual-model InnerHop loop. The Architect has finalized the plan below.',
     'Rules for EXECUTING phase:',
     '1. Follow <active_plan> faithfully in order and verify using the checks it specifies.',
     '2. Handle minor local fixes yourself (missing import, small path adjustment, one retry).',
@@ -51,6 +51,6 @@ export function buildExecutorSystemAddendum(session: SessionState): string {
   if (session.replanIf) {
     lines.push(`<replan_if>\n${session.replanIf}\n</replan_if>`);
   }
-  lines.push('</orchestrator_role>');
+  lines.push('</innerhop_role>');
   return lines.join('\n');
 }

@@ -1,5 +1,5 @@
-appId: com.orchestrator.desktop
-productName: Orchestrator
+appId: com.innerhop.desktop
+productName: InnerHop
 directories:
   output: release
   buildResources: resources
@@ -33,7 +33,7 @@ mac:
         - x64
 linux:
   icon: resources/icon.png
-  executableName: orchestrator
+  executableName: innerhop
   artifactName: ${productName}-${version}-linux-${arch}.${ext}
   category: Development
   target:

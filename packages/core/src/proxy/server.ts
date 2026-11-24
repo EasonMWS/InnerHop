@@ -275,12 +275,12 @@ export function createOrchestratorServer(
     return c.json({
       object: 'list',
       data: [
-        { id: 'orchestrator', object: 'model', created: 1700000000, owned_by: 'orchestrator' },
+        { id: 'innerhop', object: 'model', created: 1700000000, owned_by: 'innerhop' },
         ...cfg.presets.map((p) => ({
-          id: `orch:${p.id}`,
+          id: `ih:${p.id}`,
           object: 'model',
           created: 1700000000,
-          owned_by: 'orchestrator',
+          owned_by: 'innerhop',
         })),
       ],
     });
@@ -296,7 +296,7 @@ export function createOrchestratorServer(
           error: {
             type: 'compliance_error',
             message:
-              '为遵守 OpenAI 服务条款，Orchestrator 禁止代理或混用消费级 ChatGPT 订阅会话。请使用官方 API Key。',
+              '为遵守 OpenAI 服务条款，InnerHop 禁止代理或混用消费级 ChatGPT 订阅会话。请使用官方 API Key。',
           },
         },
         403,
@@ -314,7 +314,7 @@ export function createOrchestratorServer(
       const { sink, events } = createEventCollectorSink();
       await runOrchestratedTurn(canonical, sink, { configStore, sessionStore, fsm });
       return c.json(buildAnthropicJsonResponse(events, canonical.requestedModel), 200, {
-        'x-orchestrator-routed': 'orchestrator',
+        'x-innerhop-routed': 'innerhop',
       });
     }
 
@@ -344,7 +344,7 @@ export function createOrchestratorServer(
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
-        'x-orchestrator-routed': 'orchestrator',
+        'x-innerhop-routed': 'innerhop',
       },
     });
   });
@@ -359,7 +359,7 @@ export function createOrchestratorServer(
           error: {
             type: 'compliance_error',
             message:
-              '为遵守 OpenAI 服务条款，Orchestrator 禁止代理或混用消费级 ChatGPT 订阅会话。请使用官方 OPENAI_API_KEY。',
+              '为遵守 OpenAI 服务条款，InnerHop 禁止代理或混用消费级 ChatGPT 订阅会话。请使用官方 OPENAI_API_KEY。',
           },
         },
         403,
@@ -377,7 +377,7 @@ export function createOrchestratorServer(
       const { sink, events } = createEventCollectorSink();
       await runOrchestratedTurn(canonical, sink, { configStore, sessionStore, fsm });
       return c.json(buildOpenAIChatJsonResponse(events, canonical.requestedModel), 200, {
-        'x-orchestrator-routed': 'orchestrator',
+        'x-innerhop-routed': 'innerhop',
       });
     }
 
@@ -407,7 +407,7 @@ export function createOrchestratorServer(
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
-        'x-orchestrator-routed': 'orchestrator',
+        'x-innerhop-routed': 'innerhop',
       },
     });
   });
@@ -422,7 +422,7 @@ export function createOrchestratorServer(
           error: {
             type: 'compliance_error',
             message:
-              '为遵守 OpenAI 服务条款，Orchestrator 禁止代理或混用消费级 ChatGPT 订阅会话。请使用官方 OPENAI_API_KEY 认证 Codex CLI 后再接入。',
+              '为遵守 OpenAI 服务条款，InnerHop 禁止代理或混用消费级 ChatGPT 订阅会话。请使用官方 OPENAI_API_KEY 认证 Codex CLI 后再接入。',
           },
         },
         403,
@@ -440,7 +440,7 @@ export function createOrchestratorServer(
       const { sink, events } = createEventCollectorSink();
       await runOrchestratedTurn(canonical, sink, { configStore, sessionStore, fsm });
       return c.json(buildOpenAIResponsesJsonResponse(events, canonical.requestedModel), 200, {
-        'x-orchestrator-routed': 'orchestrator',
+        'x-innerhop-routed': 'innerhop',
       });
     }
 
@@ -470,7 +470,7 @@ export function createOrchestratorServer(
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
-        'x-orchestrator-routed': 'orchestrator',
+        'x-innerhop-routed': 'innerhop',
       },
     });
   });
@@ -481,10 +481,14 @@ export function createOrchestratorServer(
     sessionStore,
     harnessManager,
     listen(port = configStore.getConfig().port, host = configStore.getConfig().host) {
-      if (!isLoopbackHost(host) && process.env.ORCHESTRATOR_ALLOW_REMOTE !== '1') {
+      if (
+        !isLoopbackHost(host) &&
+        process.env.INNERHOP_ALLOW_REMOTE !== '1' &&
+        process.env.ORCHESTRATOR_ALLOW_REMOTE !== '1'
+      ) {
         return Promise.reject(
           new Error(
-            `Security policy blocks binding to non-loopback host "${host}". Set ORCHESTRATOR_ALLOW_REMOTE=1 to override.`,
+            `Security policy blocks binding to non-loopback host "${host}". Set INNERHOP_ALLOW_REMOTE=1 to override.`,
           ),
         );
       }

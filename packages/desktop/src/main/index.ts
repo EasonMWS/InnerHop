@@ -15,7 +15,7 @@ import {
   CUSTOM_PRESET_ID,
   type OrchestratorConfig,
   type OrchestratorServerHandle,
-} from '@orchestrator/core';
+} from '@innerhop/core';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -166,7 +166,7 @@ function refreshTrayMenu(): void {
     { label: statusLine, enabled: false },
     { type: 'separator' },
     {
-      label: '打开 Orchestrator 主界面',
+      label: '打开 InnerHop 主界面',
       click: showMainWindow,
     },
     {
@@ -198,7 +198,7 @@ function refreshTrayMenu(): void {
       },
     },
     {
-      label: '退出 Orchestrator',
+      label: '退出 InnerHop',
       click: () => {
         void quitApplication();
       },
@@ -208,8 +208,8 @@ function refreshTrayMenu(): void {
   tray.setContextMenu(menu);
   tray.setToolTip(
     engineRunning && activePreset
-      ? `Orchestrator · 运行中\n${activePreset.planner.modelId} → ${activePreset.executor.modelId}`
-      : 'Orchestrator · 已暂停',
+      ? `InnerHop · 运行中\n${activePreset.planner.modelId} → ${activePreset.executor.modelId}`
+      : 'InnerHop · 已暂停',
   );
 }
 
@@ -220,7 +220,7 @@ function createWindow(): void {
     height: 780,
     minWidth: 980,
     minHeight: 650,
-    title: 'Orchestrator',
+    title: 'InnerHop',
     icon,
     autoHideMenuBar: true,
     backgroundColor: '#F5F7FB',
@@ -275,7 +275,7 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     await startEngine().catch((err) => {
-      console.error('Failed to start Orchestrator engine:', err);
+      console.error('Failed to start InnerHop engine:', err);
     });
 
     ipcMain.handle('engine:status', () => ({

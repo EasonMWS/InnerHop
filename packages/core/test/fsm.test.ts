@@ -72,11 +72,11 @@ describe('OrchestratorFsm & Protocol Helpers', () => {
     expect(switchedModel[0].parts[0]).toEqual({ type: 'text', text: 'Here is the plan.' });
   });
 
-  it('preserves earlier cached system blocks when appending orchestrator addendum', () => {
+  it('preserves earlier cached system blocks when appending innerhop addendum', () => {
     const base = [
       { type: 'text' as const, text: 'Static system prefix', cacheControl: { type: 'ephemeral' } },
     ];
-    const next = appendSystemAddendumPreservingCache(base, '<orchestrator_role>...</orchestrator_role>');
+    const next = appendSystemAddendumPreservingCache(base, '<innerhop_role>...</innerhop_role>');
     expect(next).toHaveLength(2);
     expect(next[0]).toEqual(base[0]);
     expect(next[1].cacheControl).toBeUndefined();

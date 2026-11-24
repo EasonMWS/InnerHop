@@ -4,8 +4,10 @@ export {
   CUSTOM_PRESET_ID,
   createDefaultConfig,
   getDefaultDataDir,
+  migrateLegacyDataDirIfNeeded,
   atomicWriteJson,
 } from './store/configStore.js';
+export type { OrchestratorConfig as InnerHopConfig } from './types.js';
 export { SessionStore } from './store/sessionStore.js';
 export { OrchestratorFsm } from './fsm/orchestratorFsm.js';
 export {
@@ -59,6 +61,7 @@ export {
 } from './proxy/bypassProxy.js';
 export {
   createOrchestratorServer,
+  createOrchestratorServer as createInnerHopServer,
   type OrchestratorServerHandle,
   type OrchestratorServerOptions,
 } from './proxy/server.js';

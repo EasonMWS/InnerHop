@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -7,6 +7,7 @@ import {
   createOrchestratorServer,
   HarnessManager,
   hasDisallowedConsumerSessionHeaders,
+  migrateLegacyDataDirIfNeeded,
   SessionStore,
 } from '../src/index.js';
 
@@ -56,8 +57,10 @@ describe('Security & Platform-ToS Compliance', () => {
     expect(cliRes.status).toBe(200);
   });
 
-  it('refuses binding to non-loopback host unless ORCHESTRATOR_ALLOW_REMOTE=1', async () => {
-    const prev = process.env.ORCHESTRATOR_ALLOW_REMOTE;
+  it('refuses binding to non-loopback host unless INNERHOP_ALLOW_REMOTE=1', async () => {
+    const prevInner = process.env.INNERHOP_ALLOW_REMOTE;
+    const prevOrch = process.env.ORCHESTRATOR_ALLOW_REMOTE;
+    delete process.env.INNERHOP_ALLOW_REMOTE;
     delete process.env.ORCHESTRATOR_ALLOW_REMOTE;
     const remoteSrv = createOrchestratorServer({
       configStore: new ConfigStore(tmpDir),
@@ -65,7 +68,8 @@ describe('Security & Platform-ToS Compliance', () => {
       harnessManager: new HarnessManager({ homeDir: tmpDir, dataDir: tmpDir }),
     });
     await expect(remoteSrv.listen(0, '0.0.0.0')).rejects.toThrow(/non-loopback/i);
-    if (prev !== undefined) process.env.ORCHESTRATOR_ALLOW_REMOTE = prev;
+    if (prevInner !== undefined) process.env.INNERHOP_ALLOW_REMOTE = prevInner;
+    if (prevOrch !== undefined) process.env.ORCHESTRATOR_ALLOW_REMOTE = prevOrch;
   });
 
   it('blocks consumer ChatGPT subscription session headers to prevent ToS violations', async () => {
@@ -144,5 +148,34 @@ describe('Security & Platform-ToS Compliance', () => {
 
     sseController.abort();
     await expect(fetch(`${url}/api/health`)).rejects.toThrow();
+  });
+
+  it('migrates legacy ~/.orchestrator data dir to ~/.innerhop read-only without deleting legacy files', () => {
+    const base = mkdtempSync(join(tmpdir(), 'ih-legacy-mig-'));
+    try {
+      const legacyDir = join(base, '.orchestrator');
+      const targetDir = join(base, '.innerhop');
+      mkdirSync(join(legacyDir, 'backups'), { recursive: true });
+      writeFileSync(join(legacyDir, 'config.json'), '{"port":8787,"apiKeyHint":"kept"}', 'utf8');
+      writeFileSync(join(legacyDir, 'sessions.json'), '[{"id":"s1"}]', 'utf8');
+      writeFileSync(join(legacyDir, 'backups', 'claude-code.bak'), '{"env":{}}', 'utf8');
+
+      const migrated = migrateLegacyDataDirIfNeeded(targetDir, legacyDir);
+      expect(migrated).toBe(true);
+      expect(readFileSync(join(targetDir, 'config.json'), 'utf8')).toContain('kept');
+      expect(readFileSync(join(targetDir, 'sessions.json'), 'utf8')).toContain('s1');
+      expect(readFileSync(join(targetDir, 'backups', 'claude-code.bak'), 'utf8')).toBe('{"env":{}}');
+
+      // Legacy directory must remain intact
+      expect(existsSync(join(legacyDir, 'config.json'))).toBe(true);
+      expect(existsSync(join(legacyDir, 'sessions.json'))).toBe(true);
+
+      // Subsequent calls must not overwrite target
+      writeFileSync(join(targetDir, 'config.json'), '{"port":9999}', 'utf8');
+      expect(migrateLegacyDataDirIfNeeded(targetDir, legacyDir)).toBe(false);
+      expect(readFileSync(join(targetDir, 'config.json'), 'utf8')).toBe('{"port":9999}');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
   });
 });

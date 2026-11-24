@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
@@ -22,8 +22,40 @@ const REMOVED_LEGACY_IDS = new Set([
   'codex-chatgpt-sub',
 ]);
 
+export function migrateLegacyDataDirIfNeeded(targetDir: string, legacyDir: string): boolean {
+  const targetConfig = join(targetDir, 'config.json');
+  const legacyConfig = join(legacyDir, 'config.json');
+  if (existsSync(targetConfig) || !existsSync(legacyConfig)) {
+    return false;
+  }
+  try {
+    mkdirSync(targetDir, { recursive: true });
+    copyFileSync(legacyConfig, targetConfig);
+    const legacySessions = join(legacyDir, 'sessions.json');
+    if (existsSync(legacySessions)) {
+      copyFileSync(legacySessions, join(targetDir, 'sessions.json'));
+    }
+    const legacyBackups = join(legacyDir, 'backups');
+    if (existsSync(legacyBackups)) {
+      const targetBackups = join(targetDir, 'backups');
+      mkdirSync(targetBackups, { recursive: true });
+      for (const entry of readdirSync(legacyBackups)) {
+        copyFileSync(join(legacyBackups, entry), join(targetBackups, entry));
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getDefaultDataDir(): string {
-  return process.env.ORCHESTRATOR_DATA_DIR || join(homedir(), '.orchestrator');
+  if (process.env.INNERHOP_DATA_DIR) return process.env.INNERHOP_DATA_DIR;
+  if (process.env.ORCHESTRATOR_DATA_DIR) return process.env.ORCHESTRATOR_DATA_DIR;
+  const target = join(homedir(), '.innerhop');
+  const legacy = join(homedir(), '.orchestrator');
+  migrateLegacyDataDirIfNeeded(target, legacy);
+  return target;
 }
 
 export function createDefaultConfig(): OrchestratorConfig {
@@ -265,8 +297,13 @@ export class ConfigStore extends EventEmitter {
   }
 
   resolvePreset(requestedModel?: string): PresetConfig {
-    if (requestedModel && requestedModel.startsWith('orch:')) {
-      const presetId = requestedModel.slice('orch:'.length);
+    const prefix = requestedModel?.startsWith('ih:')
+      ? 'ih:'
+      : requestedModel?.startsWith('orch:')
+        ? 'orch:'
+        : null;
+    if (requestedModel && prefix) {
+      const presetId = requestedModel.slice(prefix.length);
       if (presetId === CUSTOM_PRESET_ID && this.config.customPair) {
         return {
           id: CUSTOM_PRESET_ID,
@@ -319,7 +356,13 @@ export class ConfigStore extends EventEmitter {
       return true;
     }
     const m = (requestedModel ?? '').trim().toLowerCase();
-    if (!m || m === 'orchestrator' || m.startsWith('orch:')) {
+    if (
+      !m ||
+      m === 'innerhop' ||
+      m.startsWith('ih:') ||
+      m === 'orchestrator' ||
+      m.startsWith('orch:')
+    ) {
       return true;
     }
     return this.config.routing.triggerModelPatterns.some((pattern) => {

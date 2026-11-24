@@ -18,8 +18,10 @@ export interface HarnessManagerOptions {
   port?: number;
 }
 
-const CODEX_MARKER_START = '# >>> ORCHESTRATOR MANAGED START >>>';
-const CODEX_MARKER_END = '# <<< ORCHESTRATOR MANAGED END <<<';
+const CODEX_MARKER_START = '# >>> INNERHOP MANAGED START >>>';
+const CODEX_MARKER_END = '# <<< INNERHOP MANAGED END <<<';
+const LEGACY_CODEX_MARKER_START = '# >>> ORCHESTRATOR MANAGED START >>>';
+const LEGACY_CODEX_MARKER_END = '# <<< ORCHESTRATOR MANAGED END <<<';
 
 function isCommandAvailable(cmd: string): boolean {
   try {
@@ -104,7 +106,7 @@ export class HarnessManager {
   listStatuses(activePresetId: string): HarnessStatus[] {
     const baseUrl = this.getBaseUrl();
     const openAiUrl = `${baseUrl}/v1`;
-    const modelAlias = `orch:${activePresetId}`;
+    const modelAlias = `ih:${activePresetId}`;
 
     // 1. Claude Code
     const claudePath = this.getClaudeSettingsPath();
@@ -126,7 +128,8 @@ export class HarnessManager {
     if (existsSync(codexPath)) {
       try {
         const raw = readFileSync(codexPath, 'utf8');
-        codexEnabled = raw.includes(CODEX_MARKER_START);
+        codexEnabled =
+          raw.includes(CODEX_MARKER_START) || raw.includes(LEGACY_CODEX_MARKER_START);
       } catch {
         codexEnabled = false;
       }
@@ -140,7 +143,7 @@ export class HarnessManager {
         const json = JSON.parse(readFileSync(opencodePath, 'utf8')) as {
           provider?: Record<string, unknown>;
         };
-        opencodeEnabled = Boolean(json.provider?.orchestrator);
+        opencodeEnabled = Boolean(json.provider?.innerhop || json.provider?.orchestrator);
       } catch {
         opencodeEnabled = false;
       }
@@ -160,7 +163,8 @@ export class HarnessManager {
       {
         id: 'codex',
         name: 'OpenAI Codex CLI',
-        description: 'OpenAI Codex CLI（写入独立 profile，不影响官方 Codex/ChatGPT 桌面端；终端运行 codex -p orchestrator 使用）',
+        description:
+          'OpenAI Codex CLI（写入独立 profile，不影响官方 Codex/ChatGPT 桌面端；终端运行 codex -p innerhop 使用）',
         mode: 'one-click',
         installed: isCommandAvailable('codex') || existsSync(dirname(codexPath)),
         enabled: codexEnabled,
@@ -170,7 +174,7 @@ export class HarnessManager {
       {
         id: 'opencode',
         name: 'OpenCode',
-        description: '开源多模型终端编程工具（注入 orchestrator provider 即可选择）',
+        description: '开源多模型终端编程工具（注入 innerhop provider 即可选择）',
         mode: 'one-click',
         installed: isCommandAvailable('opencode') || existsSync(dirname(opencodePath)),
         enabled: opencodeEnabled,
@@ -190,13 +194,13 @@ export class HarnessManager {
         copyConfig: {
           providerLabel: 'OpenAI Compatible',
           baseUrl: openAiUrl,
-          apiKeyPlaceholder: 'orchestrator-local',
+          apiKeyPlaceholder: 'innerhop-local',
           modelName: modelAlias,
         },
         guideSteps: [
           '打开对应工具的自定义模型 / API Provider 设置面板。',
-          'Provider 选择「OpenAI Compatible」，Base URL 填入上方地址，API Key 填任意非空占位字符（如 orchestrator-local）。',
-          'Model ID 填入当前策略代号（或固定填写 orchestrator）；Aider 用户也可直接在终端执行 orch run aider。',
+          'Provider 选择「OpenAI Compatible」，Base URL 填入上方地址，API Key 填任意非空占位字符（如 innerhop-local）。',
+          'Model ID 填入当前策略代号（或固定填写 innerhop）；Aider 用户也可直接在终端执行 innerhop run aider。',
         ],
       },
     ];
@@ -238,15 +242,15 @@ export class HarnessManager {
       raw = this.stripCodexBlock(raw);
       const block = [
         CODEX_MARKER_START,
-        `[model_providers.orchestrator]`,
-        `name = "Orchestrator"`,
+        `[model_providers.innerhop]`,
+        `name = "InnerHop"`,
         `base_url = "${baseUrl}/v1"`,
         `wire_api = "responses"`,
         `env_key = "OPENAI_API_KEY"`,
         '',
-        `[profiles.orchestrator]`,
-        `model_provider = "orchestrator"`,
-        `model = "orch:${activePresetId}"`,
+        `[profiles.innerhop]`,
+        `model_provider = "innerhop"`,
+        `model = "ih:${activePresetId}"`,
         CODEX_MARKER_END,
       ].join('\n');
       const trimmedBase = raw.trimEnd();
@@ -269,29 +273,30 @@ export class HarnessManager {
         json.provider && typeof json.provider === 'object'
           ? { ...(json.provider as Record<string, unknown>) }
           : {};
+      delete providers.orchestrator;
 
       const modelsMap: Record<string, { name: string }> = {
-        orchestrator: { name: 'Orchestrator (跟随当前默认策略)' },
+        innerhop: { name: 'InnerHop (跟随当前默认策略)' },
       };
       if (presets && presets.length > 0) {
         for (const p of presets) {
-          modelsMap[`orch:${p.id}`] = { name: `Orchestrator · ${p.name}` };
+          modelsMap[`ih:${p.id}`] = { name: `InnerHop · ${p.name}` };
         }
       } else {
-        modelsMap[`orch:${activePresetId}`] = { name: `Orchestrator (${activePresetId})` };
+        modelsMap[`ih:${activePresetId}`] = { name: `InnerHop (${activePresetId})` };
       }
 
-      providers.orchestrator = {
+      providers.innerhop = {
         npm: '@ai-sdk/openai-compatible',
-        name: 'Orchestrator (Planner + Executor)',
+        name: 'InnerHop (Planner + Executor)',
         options: {
           baseURL: `${baseUrl}/v1`,
-          apiKey: 'orchestrator-local',
+          apiKey: 'innerhop-local',
         },
         models: modelsMap,
       };
       json.provider = providers;
-      json.model = `orchestrator/orch:${activePresetId}`;
+      json.model = `innerhop/ih:${activePresetId}`;
       writeFileSync(target, JSON.stringify(json, null, 2), 'utf8');
     }
 
@@ -333,6 +338,7 @@ export class HarnessManager {
         try {
           const json = JSON.parse(readFileSync(target, 'utf8')) as Record<string, unknown>;
           if (json.provider && typeof json.provider === 'object') {
+            delete (json.provider as Record<string, unknown>).innerhop;
             delete (json.provider as Record<string, unknown>).orchestrator;
           }
           writeFileSync(target, JSON.stringify(json, null, 2), 'utf8');
@@ -345,15 +351,21 @@ export class HarnessManager {
     return this.listStatuses(activePresetId);
   }
 
-  private stripCodexBlock(raw: string): string {
-    const startIdx = raw.indexOf(CODEX_MARKER_START);
-    const endIdx = raw.indexOf(CODEX_MARKER_END);
+  private stripMarkerPair(raw: string, startMarker: string, endMarker: string): string {
+    const startIdx = raw.indexOf(startMarker);
+    const endIdx = raw.indexOf(endMarker);
     if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return raw;
     const before = raw.slice(0, startIdx).replace(/\s+$/, '');
-    const after = raw.slice(endIdx + CODEX_MARKER_END.length).replace(/^\s+/, '');
+    const after = raw.slice(endIdx + endMarker.length).replace(/^\s+/, '');
     if (!before && !after) return '';
     if (!before) return `${after}\n`;
     if (!after) return `${before}\n`;
     return `${before}\n\n${after}`;
+  }
+
+  private stripCodexBlock(raw: string): string {
+    let cleaned = this.stripMarkerPair(raw, CODEX_MARKER_START, CODEX_MARKER_END);
+    cleaned = this.stripMarkerPair(cleaned, LEGACY_CODEX_MARKER_START, LEGACY_CODEX_MARKER_END);
+    return cleaned;
   }
 }

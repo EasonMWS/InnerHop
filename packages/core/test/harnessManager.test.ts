@@ -72,12 +72,12 @@ describe('HarnessManager Safe Backup & Restore', () => {
     const def = createDefaultConfig();
     manager.enableHarness('opencode', 'claude-flagship-workhorse', def.presets);
     const modified = JSON.parse(readFileSync(ocPath, 'utf8')) as {
-      provider?: { orchestrator?: { models?: Record<string, unknown> } };
+      provider?: { innerhop?: { models?: Record<string, unknown> } };
     };
-    expect(modified.provider?.orchestrator).toBeDefined();
-    expect(modified.provider?.orchestrator?.models?.['orchestrator']).toBeDefined();
+    expect(modified.provider?.innerhop).toBeDefined();
+    expect(modified.provider?.innerhop?.models?.['innerhop']).toBeDefined();
     for (const p of def.presets) {
-      expect(modified.provider?.orchestrator?.models?.[`orch:${p.id}`]).toBeDefined();
+      expect(modified.provider?.innerhop?.models?.[`ih:${p.id}`]).toBeDefined();
     }
 
     manager.disableHarness('opencode', 'claude-flagship-workhorse');
@@ -105,14 +105,39 @@ describe('HarnessManager Safe Backup & Restore', () => {
     const updated = readFileSync(codexPath, 'utf8');
     // Top-level keys must stay above [desktop]
     expect(updated.indexOf('model = "gpt-6-astra"')).toBeLessThan(updated.indexOf('[desktop]'));
-    expect(updated.indexOf('[desktop]')).toBeLessThan(updated.indexOf('[model_providers.orchestrator]'));
-    expect(updated).toContain('[profiles.orchestrator]');
-    // Must not inject top-level model_provider outside [profiles.orchestrator]
+    expect(updated.indexOf('[desktop]')).toBeLessThan(updated.indexOf('[model_providers.innerhop]'));
+    expect(updated).toContain('[profiles.innerhop]');
+    // Must not inject top-level model_provider outside [profiles.innerhop]
     const beforeDesktop = updated.slice(0, updated.indexOf('[desktop]'));
     expect(beforeDesktop).not.toContain('model_provider');
 
     manager.disableHarness('codex', 'claude-flagship-workhorse');
     expect(readFileSync(codexPath, 'utf8')).toBe(original);
+  });
+
+  it('replaces legacy ORCHESTRATOR Codex block cleanly on enable', () => {
+    const codexDir = join(tmpHome, '.codex');
+    const codexPath = join(codexDir, 'config.toml');
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(
+      codexPath,
+      [
+        'model = "gpt-6-astra"',
+        '',
+        '# >>> ORCHESTRATOR MANAGED START >>>',
+        '[model_providers.orchestrator]',
+        'name = "Orchestrator"',
+        '# <<< ORCHESTRATOR MANAGED END <<<',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    manager.enableHarness('codex', 'claude-flagship-workhorse');
+    const updated = readFileSync(codexPath, 'utf8');
+    expect(updated).not.toContain('ORCHESTRATOR MANAGED');
+    expect(updated).toContain('[model_providers.innerhop]');
+    expect(updated).toContain('[profiles.innerhop]');
   });
 
   it('lists 3 one-click harnesses and 1 unified 其他 Harness entry', () => {

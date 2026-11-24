@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { createOrchestratorServer } from '@orchestrator/core';
+import { createOrchestratorServer } from '@innerhop/core';
 
 function parseArgs(argv: string[]) {
   const args = [...argv];
@@ -40,13 +40,13 @@ async function isServerAlive(port: number): Promise<boolean> {
 
 function printHelp() {
   console.log(`
-Orchestrator CLI (orch) — 多 Harness 通用双模型编排器
+InnerHop CLI (innerhop / ih) — 多 Harness 通用双模型编排器
 
 用法:
-  orch serve [--port 8787]                   启动本地编排代理服务
-  orch run <claude|codex|opencode|aider>     带代理环境变量临时启动指定 AI 工具
-           [--preset <id>] [-- ...args]
-  orch status [--port 8787]                  查看当前运行状态与活跃会话
+  innerhop serve [--port 8787]                   启动本地编排代理服务
+  innerhop run <claude|codex|opencode|aider>     带代理环境变量临时启动指定 AI 工具
+               [--preset <id>] [-- ...args]
+  innerhop status [--port 8787]                  查看当前运行状态与活跃会话
   `.trim());
 }
 
@@ -63,11 +63,11 @@ async function main() {
     const info = await srv.listen(parsed.port, '127.0.0.1');
     const cfg = srv.configStore.getConfig();
     const preset = srv.configStore.getPresetById(cfg.activePresetId);
-    console.log(`[Orchestrator] 代理引擎已启动: ${info.url}`);
+    console.log(`[InnerHop] 代理引擎已启动: ${info.url}`);
     console.log(
-      `[Orchestrator] 当前套餐: ${preset.name} (${preset.planner.modelId} -> ${preset.executor.modelId})`,
+      `[InnerHop] 当前策略: ${preset.name} (${preset.planner.modelId} -> ${preset.executor.modelId})`,
     );
-    console.log(`[Orchestrator] 按 Ctrl+C 停止服务`);
+    console.log(`[InnerHop] 按 Ctrl+C 停止服务`);
     process.on('SIGINT', async () => {
       await srv.close();
       process.exit(0);
@@ -82,7 +82,7 @@ async function main() {
       const data = await res.json();
       console.log(JSON.stringify(data, null, 2));
     } catch {
-      console.error(`[Orchestrator] 未检测到运行中的服务 (${url})。请先打开桌面端或运行 orch serve。`);
+      console.error(`[InnerHop] 未检测到运行中的服务 (${url})。请先打开桌面端或运行 innerhop serve。`);
       process.exit(1);
     }
     return;
@@ -91,7 +91,7 @@ async function main() {
   if (parsed.command === 'run') {
     const target = parsed.sub;
     if (!target) {
-      console.error('请指定要启动的工具，例如: orch run claude');
+      console.error('请指定要启动的工具，例如: innerhop run claude');
       process.exit(1);
     }
 
@@ -99,11 +99,11 @@ async function main() {
     if (!(await isServerAlive(parsed.port))) {
       embeddedServer = createOrchestratorServer();
       await embeddedServer.listen(parsed.port, '127.0.0.1');
-      console.log(`[Orchestrator] 已自动拉起临时本地编排引擎 http://127.0.0.1:${parsed.port}`);
+      console.log(`[InnerHop] 已自动拉起临时本地编排引擎 http://127.0.0.1:${parsed.port}`);
     }
 
     const baseUrl = `http://127.0.0.1:${parsed.port}`;
-    const modelName = parsed.preset ? `orch:${parsed.preset}` : 'orchestrator';
+    const modelName = parsed.preset ? `ih:${parsed.preset}` : 'innerhop';
     const childEnv: NodeJS.ProcessEnv = {
       ...process.env,
       ANTHROPIC_BASE_URL: baseUrl,
@@ -124,7 +124,7 @@ async function main() {
       process.exit(code ?? 0);
     });
     child.on('error', async (err) => {
-      console.error(`[Orchestrator] 启动 "${target}" 失败: ${err.message}`);
+      console.error(`[InnerHop] 启动 "${target}" 失败: ${err.message}`);
       if (embeddedServer) await embeddedServer.close();
       process.exit(1);
     });

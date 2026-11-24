@@ -1,15 +1,15 @@
 {
-  "name": "@orchestrator/desktop",
-  "version": "0.1.1",
+  "name": "@innerhop/desktop",
+  "version": "0.2.0",
   "license": "MIT",
-  "description": "Multi-harness dual-model Orchestrator desktop app",
-  "homepage": "https://github.com/EasonMWS/orchestrator#readme",
+  "description": "Multi-harness dual-model InnerHop desktop app",
+  "homepage": "https://github.com/EasonMWS/innerhop#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/EasonMWS/orchestrator.git",
+    "url": "https://github.com/EasonMWS/innerhop.git",
     "directory": "packages/desktop"
   },
-  "author": "Orchestrator Contributors",
+  "author": "InnerHop Contributors",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -24,7 +24,7 @@
     "pack:linux": "electron-vite build && electron-builder --linux --config electron-builder.yml"
   },
   "dependencies": {
-    "@orchestrator/core": "workspace:*",
+    "@innerhop/core": "workspace:*",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

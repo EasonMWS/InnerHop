@@ -168,7 +168,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@orchestrator/core':
+      '@innerhop/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -206,7 +206,7 @@ importers:
 
   packages/desktop:
     dependencies:
-      '@orchestrator/core':
+      '@innerhop/core':
         specifier: workspace:*
         version: link:../core
       lucide-react:

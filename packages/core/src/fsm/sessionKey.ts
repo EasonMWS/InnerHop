@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import type { CanonicalRequest } from '../protocols/normalized.js';
 
 export function extractSessionId(req: CanonicalRequest): string {
-  const explicitHeader = req.rawHeaders['x-orchestrator-session'];
+  const explicitHeader =
+    req.rawHeaders['x-innerhop-session'] || req.rawHeaders['x-orchestrator-session'];
   if (explicitHeader && explicitHeader.trim()) {
     return `hdr:${explicitHeader.trim()}`;
   }

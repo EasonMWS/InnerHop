@@ -75,6 +75,9 @@ export function detectHarnessHint(
   if (sysLower.includes('opencode') || (names.has('todowrite') && names.has('bash'))) {
     return 'opencode';
   }
+  if (sysLower.includes('deepseek harness') || /\bdsh\b/.test(sysLower)) {
+    return 'dsh';
+  }
   if (sysLower.includes('roo code') || sysLower.includes('roocode')) {
     return 'roo-code';
   }

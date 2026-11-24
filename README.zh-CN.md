@@ -38,8 +38,8 @@ flowchart TD
 ### 方式一：桌面端（Windows / macOS / Linux）
 
 1. 前往 [GitHub Releases](https://github.com/EasonMWS/innerhop/releases) 下载对应系统安装包（或参考文末命令本地打包）：
-   - **Windows**：解压 `InnerHop-0.2.0-win.zip` 并运行 `InnerHop.exe`，后台自动在 `http://127.0.0.1:8787` 启动本地引擎。
-   - **Linux**：解压 `InnerHop-0.2.0-linux-x64.tar.gz` 并运行 `./innerhop`，或在本机运行 `pnpm desktop:pack:linux` 生成 `.AppImage`/`.tar.gz`。
+   - **Windows**：解压 `InnerHop-0.2.1-win.zip` 并运行 `InnerHop.exe`，后台自动在 `http://127.0.0.1:8787` 启动本地引擎。
+   - **Linux**：解压 `InnerHop-0.2.1-linux-x64.tar.gz` 并运行 `./innerhop`，或在本机运行 `pnpm desktop:pack:linux` 生成 `.AppImage`/`.tar.gz`。
    - **macOS**：克隆仓库后在 macOS 下运行 `pnpm desktop:pack:mac`（生成 Apple Silicon & Intel `.dmg`/`.zip`）。
 2. 点左侧 **「模型 API Key」**，填入你的官方开发者 API Key 并点 **「测速验 Key」**。
 3. 回到 **「首页 · 控制台」**，在「当前工作模式」选好预设策略或手动搭配模型与思考强度。
@@ -69,10 +69,12 @@ innerhop status
 
 | 工具 | 接入方式 | 路由与使用说明 |
 | :--- | :--- | :--- |
-| **Claude Code CLI** | 首页点 **「一键接入」**（自动备份 `~/.claude/settings.json`，关闭即 100% 还原） | **仅限终端版 CLI（API Key 模式）**，Claude Desktop 订阅版桌面端会忽略 `ANTHROPIC_BASE_URL`；智能分流默认仅接管选中的触发关键词（如 `opus` / `opusplan`）。 |
-| **OpenAI Codex CLI** | 首页点 **「一键接入」**（自动备份 `~/.codex/config.toml`） | **仅限终端版 `codex -p innerhop`（`OPENAI_API_KEY`）**，在配置末尾写入独立 `[profiles.innerhop]`；官方 ChatGPT / Codex 桌面端不受影响也不走代理。 |
-| **OpenCode** | 首页点 **「一键接入」**（自动备份 `~/.config/opencode/opencode.json`） | 自动注入动态别名 `innerhop` 及全部预设策略 `ih:<策略id>`，保留原有供应商配置。 |
-| **其他 Harness（Cline / Roo Code / Cursor / Aider 等）** | 首页 **「其他 Harness」** 点 **「查看 3 步配置」** | Provider 选 `OpenAI Compatible`，Base URL 填 `http://127.0.0.1:8787/v1`，API Key 填任意占位字符（如 `innerhop-local`），Model 填 `innerhop`（跟随当前工作模式）或 `ih:<策略id>`（锁定某条策略）。 |
+| **OpenCode**（`桌面端 + 终端`） | 首页点 **「一键接入」**（自动备份 `~/.config/opencode/opencode.json`） | Desktop 桌面端与终端 CLI 通用；自动注入动态别名 `innerhop` 及全部预设策略 `ih:<策略id>`，保留原有供应商。 |
+| **DeepSeek Harness / DSH**（`桌面端 + 终端`） | 首页点 **「一键接入」**（自动备份 `~/.dsh/profiles/*/cordis.patch.yml` 与 `.credentials.yaml`，同时兼容旧版 `settings.yaml`） | Desktop / Web / CLI 通用；自动注入 `innerhop` 供应商与全部策略别名并设为默认（若 DSH 桌面端正开着，重启一下即生效）。 |
+| **Claude Code CLI**（`仅限终端 CLI`） | 首页点 **「一键接入」**（自动备份 `~/.claude/settings.json`，关闭即 100% 还原） | **仅限终端版 CLI（API Key 模式）**，Claude Desktop 订阅版桌面端会忽略 `ANTHROPIC_BASE_URL`；智能分流默认仅接管选中的触发关键词（如 `opus` / `opusplan`）。 |
+| **OpenAI Codex CLI**（`仅限终端 CLI`） | 首页点 **「一键接入」**（自动备份 `~/.codex/config.toml`） | **仅限终端版 `codex -p innerhop`（`OPENAI_API_KEY`）**，在配置末尾写入独立 `[profiles.innerhop]`；官方 ChatGPT / Codex 桌面端不受影响也不走代理。 |
+| **Aider CLI**（`仅限终端 CLI`） | 首页点 **「一键接入」**（在 `~/.aider.conf.yml` 写入托管配置段并支持无损还原） | 自动写入 `openai-api-base`、`innerhop-local` 与 `model: openai/innerhop`；也可用 `innerhop run aider` 临时注入环境变量。 |
+| **其他 Harness（Cline / Roo Code / Cursor / Windsurf）**（`IDE / GUI 插件`） | 首页 **「其他 Harness」** 点 **「查看 3 步配置」** | Provider 选 `OpenAI Compatible`，Base URL 填 `http://127.0.0.1:8787/v1`，API Key 填任意占位字符（如 `innerhop-local`），Model 填 `innerhop` 或 `ih:<策略id>`。 |
 
 ---
 

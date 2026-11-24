@@ -1103,8 +1103,23 @@ export const HomePage: React.FC<HomePageProps> = ({
               >
                 <div>
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-slate-900">{lh.name}</span>
+                      {h.surface === 'gui-and-cli' && (
+                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-indigo-200/80">
+                          {zh ? '桌面端 + 终端' : 'Desktop + CLI'}
+                        </span>
+                      )}
+                      {h.surface === 'cli-only' && (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200/80">
+                          {zh ? '仅限终端 CLI' : 'CLI Only'}
+                        </span>
+                      )}
+                      {h.surface === 'gui-manual' && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200/80">
+                          {zh ? 'IDE / GUI 插件' : 'IDE / GUI'}
+                        </span>
+                      )}
                       {h.mode === 'one-click' && (
                         <span
                           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${

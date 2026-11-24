@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@innerhop/core'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['@innerhop/core', 'yaml'] })],
     resolve: {
       alias: {
         '@innerhop/core': resolve(__dirname, '../core/src/index.ts'),

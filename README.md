@@ -38,8 +38,8 @@ In a live end-to-end build & verification task pairing **`gpt-6.2-astra` (read-o
 ### Option 1: Desktop App (Windows / macOS / Linux)
 
 1. Download the release package for your OS from [GitHub Releases](https://github.com/EasonMWS/innerhop/releases) (or build locally — see below).
-   - **Windows**: Extract `InnerHop-0.2.0-win.zip` and launch `InnerHop.exe`.
-   - **Linux**: Extract `InnerHop-0.2.0-linux-x64.tar.gz` and run `./innerhop` (or build `.AppImage` / `.tar.gz` locally via `pnpm desktop:pack:linux`).
+   - **Windows**: Extract `InnerHop-0.2.1-win.zip` and launch `InnerHop.exe`.
+   - **Linux**: Extract `InnerHop-0.2.1-linux-x64.tar.gz` and run `./innerhop` (or build `.AppImage` / `.tar.gz` locally via `pnpm desktop:pack:linux`).
    - **macOS**: Build locally on macOS via `pnpm desktop:pack:mac` (outputs Apple Silicon & Intel `.dmg` / `.zip`).
 2. Open **API Keys** in the left sidebar, paste your official developer API keys, and click **Test Key**.
 3. Go to **Home · Console**, choose a strategy or manually select your Planner, Executor, and Reasoning Effort.
@@ -69,10 +69,12 @@ innerhop status
 
 | Harness | Integration | Routing Behavior |
 | :--- | :--- | :--- |
-| **Claude Code CLI** | One-click toggle (auto-backups `~/.claude/settings.json` and restores byte-for-byte) | Terminal CLI (API Key mode) only; Claude Desktop consumer app ignores `ANTHROPIC_BASE_URL`. Smart-Split intercepts only checked slots (`opus`, `opusplan`, etc.). |
-| **OpenAI Codex CLI** | One-click toggle (appends isolated `[profiles.innerhop]` to `~/.codex/config.toml`) | Terminal CLI (`codex -p innerhop` + `OPENAI_API_KEY`) only; official ChatGPT / Codex Desktop consumer app stays untouched and unproxied. |
-| **OpenCode** | One-click toggle (backups & updates `~/.config/opencode/opencode.json`) | Injects `innerhop` (follows active Home choice) plus pinned `ih:<strategy-id>` aliases while preserving existing providers. |
-| **Other Harnesses (Cline / Roo Code / Cursor / Aider)** | Click **Setup Guide** in the unified card | Set Provider to `OpenAI Compatible`, Base URL `http://127.0.0.1:8787/v1`, any placeholder API Key (`innerhop-local`), and Model `innerhop` (or `ih:<id>`). |
+| **OpenCode** (`Desktop + CLI`) | One-click toggle (backups & updates `~/.config/opencode/opencode.json`) | Injects `innerhop` (follows active Home choice) plus pinned `ih:<strategy-id>` aliases while preserving existing providers. |
+| **DeepSeek Harness / DSH** (`Desktop + Web + CLI`) | One-click toggle (backups & updates `~/.dsh/profiles/*/cordis.patch.yml` & `.credentials.yaml`, or legacy `settings.yaml`) | Injects `innerhop` OpenAI-compatible provider + strategy aliases and sets default model automatically (restart DSH Desktop if already open). |
+| **Claude Code CLI** (`CLI Only`) | One-click toggle (auto-backups `~/.claude/settings.json` and restores byte-for-byte) | Terminal CLI (API Key mode) only; Claude Desktop consumer app ignores `ANTHROPIC_BASE_URL`. Smart-Split intercepts only checked slots (`opus`, `opusplan`, etc.). |
+| **OpenAI Codex CLI** (`CLI Only`) | One-click toggle (appends isolated `[profiles.innerhop]` to `~/.codex/config.toml`) | Terminal CLI (`codex -p innerhop` + `OPENAI_API_KEY`) only; official ChatGPT / Codex Desktop consumer app stays untouched and unproxied. |
+| **Aider CLI** (`CLI Only`) | One-click toggle (appends managed block to `~/.aider.conf.yml` with backup/restore) | Sets `openai-api-base`, placeholder key, and `model: openai/innerhop` (follows active Home configuration); or run `innerhop run aider`. |
+| **Other Harnesses (Cline / Roo Code / Cursor / Windsurf)** (`IDE / GUI`) | Click **Setup Guide** in the unified card | Set Provider to `OpenAI Compatible`, Base URL `http://127.0.0.1:8787/v1`, any placeholder API Key (`innerhop-local`), and Model `innerhop` (or `ih:<id>`). |
 
 ---
 

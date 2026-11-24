@@ -140,12 +140,121 @@ describe('HarnessManager Safe Backup & Restore', () => {
     expect(updated).toContain('[profiles.innerhop]');
   });
 
-  it('lists 3 one-click harnesses and 1 unified 其他 Harness entry', () => {
+  it('lists 5 one-click harnesses with explicit surfaces and 1 unified 其他 Harness entry', () => {
     const statuses = manager.listStatuses('claude-flagship-workhorse');
-    expect(statuses.map((s) => s.id)).toEqual(['claude-code', 'codex', 'opencode', 'other']);
+    expect(statuses.map((s) => s.id)).toEqual([
+      'opencode',
+      'dsh',
+      'claude-code',
+      'codex',
+      'aider',
+      'other',
+    ]);
+    expect(statuses.find((s) => s.id === 'opencode')?.surface).toBe('gui-and-cli');
+    expect(statuses.find((s) => s.id === 'dsh')?.surface).toBe('gui-and-cli');
+    expect(statuses.find((s) => s.id === 'claude-code')?.surface).toBe('cli-only');
+    expect(statuses.find((s) => s.id === 'codex')?.surface).toBe('cli-only');
+    expect(statuses.find((s) => s.id === 'aider')?.surface).toBe('cli-only');
+
     const other = statuses.find((s) => s.id === 'other');
     expect(other?.name).toBe('其他 Harness');
     expect(other?.mode).toBe('manual-guide');
+    expect(other?.surface).toBe('gui-manual');
     expect(other?.copyConfig?.baseUrl).toBe('http://127.0.0.1:8787/v1');
+  });
+
+  it('deploys DSH cordis.patch.yml + .credentials.yaml preserving existing providers and restores byte-for-byte', () => {
+    const dshDesktopDir = join(tmpHome, '.dsh', 'profiles', 'desktop');
+    const patchPath = join(dshDesktopDir, 'cordis.patch.yml');
+    const credPath = join(tmpHome, '.dsh', '.credentials.yaml');
+    mkdirSync(dshDesktopDir, { recursive: true });
+
+    const originalPatch = [
+      '- id: llm-pi-ai',
+      '  name: "@deepseek-ai/dsh-llm-pi-ai"',
+      '  config:',
+      '    providers:',
+      '      bailian:',
+      '        api: openai-completions',
+      '        baseURL: https://dashscope.aliyuncs.com/compatible-mode/v1',
+      '- id: ui-chat',
+      '  name: "@deepseek-ai/dsh-client-ui-chat"',
+      '  config:',
+      '    transcriptView: standard',
+      '',
+    ].join('\n');
+    const originalCreds = [
+      'version: 1',
+      'records:',
+      '  client-connection/browser-session:',
+      '    kind: secret',
+      'refs:',
+      '  DEEPSEEK_API_KEY: ds-keep-me',
+      '',
+    ].join('\n');
+    writeFileSync(patchPath, originalPatch, 'utf8');
+    writeFileSync(credPath, originalCreds, 'utf8');
+
+    const def = createDefaultConfig();
+    const afterEnable = manager.enableHarness('dsh', 'claude-flagship-workhorse', def.presets);
+    const dshStatus = afterEnable.find((h) => h.id === 'dsh');
+    expect(dshStatus?.enabled).toBe(true);
+    expect(dshStatus?.installed).toBe(true);
+
+    const updatedPatch = readFileSync(patchPath, 'utf8');
+    expect(updatedPatch).toContain('bailian');
+    expect(updatedPatch).toContain('ui-chat');
+    expect(updatedPatch).toContain('innerhop');
+    expect(updatedPatch).toContain('http://127.0.0.1:8787/v1');
+    expect(updatedPatch).toContain('agent-default-model');
+    expect(updatedPatch).toContain('ih:claude-flagship-workhorse');
+
+    const updatedCreds = readFileSync(credPath, 'utf8');
+    expect(updatedCreds).toContain('DEEPSEEK_API_KEY: ds-keep-me');
+    expect(updatedCreds).toContain('INNERHOP_API_KEY: innerhop-local');
+    expect(updatedCreds).toContain('client-connection/browser-session');
+
+    const afterDisable = manager.disableHarness('dsh', 'claude-flagship-workhorse');
+    expect(afterDisable.find((h) => h.id === 'dsh')?.enabled).toBe(false);
+    expect(readFileSync(patchPath, 'utf8')).toBe(originalPatch);
+    expect(readFileSync(credPath, 'utf8')).toBe(originalCreds);
+  });
+
+  it('deploys DSH legacy settings.yaml + .env and restores cleanly', () => {
+    const dshRoot = join(tmpHome, '.dsh');
+    const settingsPath = join(dshRoot, 'settings.yaml');
+    const envPath = join(dshRoot, '.env');
+    mkdirSync(dshRoot, { recursive: true });
+    const originalYaml = 'ui:\n  theme: light\n';
+    writeFileSync(settingsPath, originalYaml, 'utf8');
+    writeFileSync(envPath, 'EXISTING_KEY=abc\n', 'utf8');
+
+    const afterEnable = manager.enableHarness('dsh', 'claude-flagship-workhorse');
+    expect(afterEnable.find((h) => h.id === 'dsh')?.enabled).toBe(true);
+    expect(readFileSync(settingsPath, 'utf8')).toContain('http://127.0.0.1:8787/v1');
+    expect(readFileSync(envPath, 'utf8')).toContain('INNERHOP_API_KEY=innerhop-local');
+    expect(readFileSync(envPath, 'utf8')).toContain('EXISTING_KEY=abc');
+
+    const afterDisable = manager.disableHarness('dsh', 'claude-flagship-workhorse');
+    expect(afterDisable.find((h) => h.id === 'dsh')?.enabled).toBe(false);
+    expect(readFileSync(settingsPath, 'utf8')).toBe(originalYaml);
+    expect(readFileSync(envPath, 'utf8')).toBe('EXISTING_KEY=abc\n');
+  });
+
+  it('deploys and restores ~/.aider.conf.yml cleanly', () => {
+    const aiderPath = join(tmpHome, '.aider.conf.yml');
+    const original = 'dark-mode: true\n';
+    writeFileSync(aiderPath, original, 'utf8');
+
+    const afterEnable = manager.enableHarness('aider', 'claude-flagship-workhorse');
+    expect(afterEnable.find((h) => h.id === 'aider')?.enabled).toBe(true);
+    const updated = readFileSync(aiderPath, 'utf8');
+    expect(updated).toContain('dark-mode: true');
+    expect(updated).toContain('openai-api-base: http://127.0.0.1:8787/v1');
+    expect(updated).toContain('model: openai/innerhop');
+
+    const afterDisable = manager.disableHarness('aider', 'claude-flagship-workhorse');
+    expect(afterDisable.find((h) => h.id === 'aider')?.enabled).toBe(false);
+    expect(readFileSync(aiderPath, 'utf8')).toBe(original);
   });
 });

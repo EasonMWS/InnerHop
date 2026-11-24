@@ -87,33 +87,45 @@ export function localizeHarnessText(
     return { name: zhName, description: zhDesc, guideSteps: zhSteps };
   }
   switch (id) {
+    case 'opencode':
+      return {
+        name: 'OpenCode',
+        description:
+          'Open-source multi-model coding client (Desktop GUI & terminal CLI; one-click injects innerhop provider and strategy aliases)',
+      };
+    case 'dsh':
+      return {
+        name: 'DeepSeek Harness (DSH)',
+        description:
+          'DeepSeek plugin-based Agent harness (Desktop GUI / Web / CLI; one-click injects provider & default model — restart DSH Desktop if already open)',
+      };
     case 'claude-code':
       return {
-        name: 'Claude Code',
+        name: 'Claude Code CLI',
         description:
-          'Terminal Claude Code CLI (API Key mode only, supports Smart-Split; Claude Desktop consumer OAuth app ignores custom base URLs)',
+          'Terminal CLI only (API Key mode, Smart-Split routing). Claude Desktop consumer OAuth app connects directly to Anthropic and ignores custom base URLs.',
       };
     case 'codex':
       return {
         name: 'OpenAI Codex CLI',
         description:
-          'Terminal OpenAI Codex CLI (writes isolated [profiles.innerhop] for `codex -p innerhop` with OPENAI_API_KEY; official Codex/ChatGPT Desktop consumer app stays untouched and unproxied)',
+          'Terminal CLI only (`codex -p innerhop` with OPENAI_API_KEY). Official ChatGPT / Codex Desktop consumer OAuth app stays untouched and unproxied.',
       };
-    case 'opencode':
+    case 'aider':
       return {
-        name: 'OpenCode',
+        name: 'Aider CLI',
         description:
-          'Open-source multi-model terminal coding agent (injects innerhop provider & strategy aliases)',
+          'Terminal AI pair-programming tool (writes a clean managed block to ~/.aider.conf.yml with full backup/restore, or run `innerhop run aider`)',
       };
     case 'other':
       return {
         name: 'Other Harnesses',
         description:
-          'Cline, Roo Code, Cursor, Windsurf, Aider, or any OpenAI-Compatible client — point it to the local endpoint below',
+          'Cline, Roo Code, Cursor, Windsurf, or any OpenAI-Compatible IDE/GUI plugin — copy the 3 settings below to connect',
         guideSteps: [
           'Open your tool’s custom API / Model Provider settings.',
           'Set Provider to "OpenAI Compatible", paste the Base URL above, and put any non-empty placeholder API Key (e.g. innerhop-local).',
-          'Set Model ID to "innerhop" (follows active Home configuration) or a pinned strategy ID like "ih:<id>". Aider users can also run `innerhop run aider`.',
+          'Set Model ID to "innerhop" (follows active Home configuration) or a pinned strategy ID like "ih:<id>".',
         ],
       };
     default:
@@ -123,24 +135,26 @@ export function localizeHarnessText(
 
 export function localizeHarnessLabel(hint: string, locale: Locale): string {
   const enMap: Record<string, string> = {
-    'claude-code': 'Claude Code',
+    'claude-code': 'Claude Code CLI',
     codex: 'Codex CLI',
     opencode: 'OpenCode',
+    dsh: 'DeepSeek Harness (DSH)',
     cline: 'Cline',
     'roo-code': 'Roo Code',
     cursor: 'Cursor',
-    aider: 'Aider',
+    aider: 'Aider CLI',
     other: 'Other Tool',
     generic: 'External Client',
   };
   const zhMap: Record<string, string> = {
-    'claude-code': 'Claude Code',
+    'claude-code': 'Claude Code CLI',
     codex: 'Codex CLI',
     opencode: 'OpenCode',
+    dsh: 'DeepSeek Harness (DSH)',
     cline: 'Cline',
     'roo-code': 'Roo Code',
     cursor: 'Cursor',
-    aider: 'Aider',
+    aider: 'Aider CLI',
     other: '其他工具',
     generic: '外部工具',
   };

@@ -1,7 +1,7 @@
 {
   "name": "innerhop-monorepo",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "MIT",
   "description": "Multi-harness universal dual-model InnerHop proxy (strong Planner + fast Executor)",
   "homepage": "https://github.com/EasonMWS/innerhop#readme",

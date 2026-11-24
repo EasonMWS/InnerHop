@@ -226,7 +226,7 @@ export const App: React.FC = () => {
                 InnerHop
               </span>
               <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
-                v0.2.0
+                v0.2.1
               </span>
             </div>
             <div className="truncate text-[11px] text-slate-400">

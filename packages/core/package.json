@@ -1,6 +1,6 @@
 {
   "name": "@innerhop/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "MIT",
   "description": "Stateful dual-model Planner-Executor proxy engine for AI coding harnesses",
   "homepage": "https://github.com/EasonMWS/innerhop#readme",
@@ -9,7 +9,15 @@
     "url": "https://github.com/EasonMWS/innerhop.git",
     "directory": "packages/core"
   },
-  "keywords": ["ai-agent", "innerhop", "orchestrator", "llm-proxy", "claude-code", "codex", "opencode"],
+  "keywords": [
+    "ai-agent",
+    "innerhop",
+    "orchestrator",
+    "llm-proxy",
+    "claude-code",
+    "codex",
+    "opencode"
+  ],
   "engines": {
     "node": ">=20.0.0"
   },
@@ -31,7 +39,8 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
-    "hono": "^4.6.14"
+    "hono": "^4.6.14",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

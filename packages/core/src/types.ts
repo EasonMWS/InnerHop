@@ -141,17 +141,21 @@ export type HarnessId =
   | 'claude-code'
   | 'codex'
   | 'opencode'
+  | 'dsh'
   | 'other'
   | 'cline'
   | 'roo-code'
   | 'cursor'
   | 'aider';
 
+export type HarnessSurface = 'cli-only' | 'gui-and-cli' | 'gui-manual';
+
 export interface HarnessStatus {
   id: HarnessId;
   name: string;
   description: string;
   mode: 'one-click' | 'manual-guide';
+  surface?: HarnessSurface;
   installed: boolean;
   enabled: boolean;
   configPath: string | null;

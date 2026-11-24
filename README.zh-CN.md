@@ -64,11 +64,13 @@ innerhop status
 ## 各端 AI 工具接入说明
 
 > 提示：下表仅配置「哪个前台工具连入本地引擎」，与你后台选哪家模型无关（例如用 OpenCode / Codex CLI / 其他 Harness 一样可以调用 Claude / DeepSeek / Gemini 模型）。
+>
+> **终端 CLI vs 官方消费级桌面端**：`Claude Code` 与 `Codex CLI` 一键接入**仅适用于终端版 CLI（API Key 模式）**；官方消费级订阅桌面客户端（**Claude Desktop**、**ChatGPT / Codex 桌面端**）均使用账号 OAuth 直连官方服务器，会忽略自定义代理地址且不经过 InnerHop。如希望在**图形界面客户端**中使用，推荐使用 **VS Code / Cursor + Cline / Roo Code** 或 **OpenCode**。
 
 | 工具 | 接入方式 | 路由与使用说明 |
 | :--- | :--- | :--- |
-| **Claude Code** | 首页点 **「一键接入」**（自动备份 `~/.claude/settings.json`，关闭即 100% 还原） | 智能分流默认仅接管选中的触发关键词（如 `opus` / `opusplan`）；选其他原生模型时直接透传官方 API。 |
-| **Codex CLI** | 首页点 **「一键接入」**（自动备份 `~/.codex/config.toml`） | 在配置末尾写入独立 `[profiles.innerhop]`，**不影响官方 Codex/ChatGPT 桌面端**；终端执行 `codex -p innerhop` 使用。 |
+| **Claude Code CLI** | 首页点 **「一键接入」**（自动备份 `~/.claude/settings.json`，关闭即 100% 还原） | **仅限终端版 CLI（API Key 模式）**，Claude Desktop 订阅版桌面端会忽略 `ANTHROPIC_BASE_URL`；智能分流默认仅接管选中的触发关键词（如 `opus` / `opusplan`）。 |
+| **OpenAI Codex CLI** | 首页点 **「一键接入」**（自动备份 `~/.codex/config.toml`） | **仅限终端版 `codex -p innerhop`（`OPENAI_API_KEY`）**，在配置末尾写入独立 `[profiles.innerhop]`；官方 ChatGPT / Codex 桌面端不受影响也不走代理。 |
 | **OpenCode** | 首页点 **「一键接入」**（自动备份 `~/.config/opencode/opencode.json`） | 自动注入动态别名 `innerhop` 及全部预设策略 `ih:<策略id>`，保留原有供应商配置。 |
 | **其他 Harness（Cline / Roo Code / Cursor / Aider 等）** | 首页 **「其他 Harness」** 点 **「查看 3 步配置」** | Provider 选 `OpenAI Compatible`，Base URL 填 `http://127.0.0.1:8787/v1`，API Key 填任意占位字符（如 `innerhop-local`），Model 填 `innerhop`（跟随当前工作模式）或 `ih:<策略id>`（锁定某条策略）。 |
 

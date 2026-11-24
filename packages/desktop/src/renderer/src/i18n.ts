@@ -91,13 +91,13 @@ export function localizeHarnessText(
       return {
         name: 'Claude Code',
         description:
-          'Anthropic terminal coding agent (uses standard ANTHROPIC_API_KEY, supports Smart-Split routing)',
+          'Terminal Claude Code CLI (API Key mode only, supports Smart-Split; Claude Desktop consumer OAuth app ignores custom base URLs)',
       };
     case 'codex':
       return {
         name: 'OpenAI Codex CLI',
         description:
-          'Writes an isolated [profiles.innerhop] without touching the official Codex/ChatGPT Desktop app; run `codex -p innerhop`',
+          'Terminal OpenAI Codex CLI (writes isolated [profiles.innerhop] for `codex -p innerhop` with OPENAI_API_KEY; official Codex/ChatGPT Desktop consumer app stays untouched and unproxied)',
       };
     case 'opencode':
       return {

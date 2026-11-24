@@ -64,11 +64,13 @@ innerhop status
 ## Supported Harnesses
 
 > **Frontend vs. Backend Decoupling**: Connecting a harness only controls which coding client enters InnerHop — it works with **any** backend API provider you configure (e.g., Codex CLI or OpenCode can seamlessly dispatch Claude, Gemini, or DeepSeek models).
+>
+> **CLI vs. Consumer Desktop Apps**: One-click `Claude Code` and `OpenAI Codex CLI` integrations work strictly with **terminal CLIs (API Key mode)**. Official consumer OAuth desktop apps (**Claude Desktop** and **ChatGPT / Codex Desktop**) ignore third-party base URLs and remain unproxied. If you want a visual GUI client, use **VS Code / Cursor + Cline / Roo Code** or **OpenCode**.
 
 | Harness | Integration | Routing Behavior |
 | :--- | :--- | :--- |
-| **Claude Code** | One-click toggle (auto-backups `~/.claude/settings.json` and restores byte-for-byte) | Smart-Split intercepts only checked slots (`opus`, `opusplan`, etc.); other native models pass straight through to Anthropic. |
-| **OpenAI Codex CLI** | One-click toggle (appends isolated `[profiles.innerhop]` to `~/.codex/config.toml`) | Leaves the official Codex / ChatGPT Desktop app untouched; launch in terminal via `codex -p innerhop`. |
+| **Claude Code CLI** | One-click toggle (auto-backups `~/.claude/settings.json` and restores byte-for-byte) | Terminal CLI (API Key mode) only; Claude Desktop consumer app ignores `ANTHROPIC_BASE_URL`. Smart-Split intercepts only checked slots (`opus`, `opusplan`, etc.). |
+| **OpenAI Codex CLI** | One-click toggle (appends isolated `[profiles.innerhop]` to `~/.codex/config.toml`) | Terminal CLI (`codex -p innerhop` + `OPENAI_API_KEY`) only; official ChatGPT / Codex Desktop consumer app stays untouched and unproxied. |
 | **OpenCode** | One-click toggle (backups & updates `~/.config/opencode/opencode.json`) | Injects `innerhop` (follows active Home choice) plus pinned `ih:<strategy-id>` aliases while preserving existing providers. |
 | **Other Harnesses (Cline / Roo Code / Cursor / Aider)** | Click **Setup Guide** in the unified card | Set Provider to `OpenAI Compatible`, Base URL `http://127.0.0.1:8787/v1`, any placeholder API Key (`innerhop-local`), and Model `innerhop` (or `ih:<id>`). |
 

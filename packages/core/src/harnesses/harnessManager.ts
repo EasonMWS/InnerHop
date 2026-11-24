@@ -153,7 +153,8 @@ export class HarnessManager {
       {
         id: 'claude-code',
         name: 'Claude Code',
-        description: 'Anthropic 终端编程 Agent（使用标准 ANTHROPIC_API_KEY 接入，支持智能分流）',
+        description:
+          '终端版 Claude Code CLI（仅支持 API Key 模式，支持智能分流；Claude Desktop 订阅版桌面端会忽略自定义代理地址）',
         mode: 'one-click',
         installed: isCommandAvailable('claude') || existsSync(dirname(claudePath)),
         enabled: claudeEnabled,
@@ -164,7 +165,7 @@ export class HarnessManager {
         id: 'codex',
         name: 'OpenAI Codex CLI',
         description:
-          'OpenAI Codex CLI（写入独立 profile，不影响官方 Codex/ChatGPT 桌面端；终端运行 codex -p innerhop 使用）',
+          '终端版 OpenAI Codex CLI（写入独立 profile，仅限终端运行 codex -p innerhop + OPENAI_API_KEY；官方 Codex/ChatGPT 订阅桌面端不走代理且不受影响）',
         mode: 'one-click',
         installed: isCommandAvailable('codex') || existsSync(dirname(codexPath)),
         enabled: codexEnabled,

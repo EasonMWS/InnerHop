@@ -2,6 +2,24 @@ import type { CanonicalMessage, CanonicalRequest } from '../protocols/normalized
 import type { PresetConfig, SessionState } from '../types.js';
 import type { SessionStore } from '../store/sessionStore.js';
 
+function isHarnessSystemNotice(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  // Pure XML-wrapped system reminders / notices injected by harnesses
+  if (/^<(system-reminder|system_message|task-notification|notice)\b[^>]*>[\s\S]*<\/\1>$/i.test(trimmed)) {
+    return true;
+  }
+  // Background subagent / task lifecycle notifications & cwd notices injected as user-role messages
+  if (
+    /^(?:background\s+(?:subagent|agent|task)\b[\s\S]*\b(?:finished|completed|stopped|exited|failed)|subagent\s+\S+\s+(?:finished|completed)|the working directory changed from\s+"|\[(?:notice|system|subagent|background|reminder|timer|cron)\])/i.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function getLastMessageAnalysis(messages: CanonicalMessage[]): {
   hasNewUserText: boolean;
   toolErrorTexts: string[];
@@ -27,6 +45,7 @@ function getLastMessageAnalysis(messages: CanonicalMessage[]): {
   }
 
   const textParts = last.parts.filter((p) => p.type === 'text').map((p) => p.text.trim()).filter(Boolean);
+  const humanTextParts = textParts.filter((t) => !isHarnessSystemNotice(t));
   const toolResults = last.parts.filter((p) => p.type === 'tool_result');
   const toolErrorTexts: string[] = [];
 
@@ -43,10 +62,9 @@ function getLastMessageAnalysis(messages: CanonicalMessage[]): {
     }
   }
 
-  const userTextPreview = textParts.join(' ').slice(0, 200);
-  // Treat trailing user message as a fresh human turn if it has text and NO tool results
-  // (some harnesses attach system-reminders in text alongside tool_result, so ignore pure tool_result turns)
-  const hasNewUserText = textParts.length > 0 && toolResults.length === 0;
+  const userTextPreview = humanTextParts.join(' ').slice(0, 200);
+  // Treat trailing user message as a fresh human turn only if it has non-system human text and NO tool results
+  const hasNewUserText = humanTextParts.length > 0 && toolResults.length === 0;
 
   return {
     hasNewUserText,
@@ -212,6 +230,7 @@ export class OrchestratorFsm {
     inputTokens: number,
     outputTokens: number,
     preset: PresetConfig,
+    cachedInputTokens = 0,
   ): void {
     const ref = role === 'planner' ? preset.planner : preset.executor;
     const inPrice = ref.inputPricePerM ?? (role === 'planner' ? 15 : 0.5);
@@ -219,18 +238,27 @@ export class OrchestratorFsm {
     const planInPrice = preset.planner.inputPricePerM ?? 15;
     const planOutPrice = preset.planner.outputPricePerM ?? 75;
 
+    const cached = Math.min(Math.max(0, cachedInputTokens), inputTokens);
+    const uncached = Math.max(0, inputTokens - cached);
+
     if (role === 'planner') {
       session.usage.plannerInput += inputTokens;
       session.usage.plannerOutput += outputTokens;
+      session.usage.plannerCachedInput = (session.usage.plannerCachedInput ?? 0) + cached;
     } else {
       session.usage.executorInput += inputTokens;
       session.usage.executorOutput += outputTokens;
+      session.usage.executorCachedInput = (session.usage.executorCachedInput ?? 0) + cached;
     }
 
     session.usage.actualCostUsd +=
-      (inputTokens / 1_000_000) * inPrice + (outputTokens / 1_000_000) * outPrice;
+      (uncached / 1_000_000) * inPrice +
+      (cached / 1_000_000) * (inPrice * 0.1) +
+      (outputTokens / 1_000_000) * outPrice;
     session.usage.baselinePlannerCostUsd +=
-      (inputTokens / 1_000_000) * planInPrice + (outputTokens / 1_000_000) * planOutPrice;
+      (uncached / 1_000_000) * planInPrice +
+      (cached / 1_000_000) * (planInPrice * 0.1) +
+      (outputTokens / 1_000_000) * planOutPrice;
 
     this.store.save(session);
   }

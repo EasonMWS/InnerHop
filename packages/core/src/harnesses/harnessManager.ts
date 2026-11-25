@@ -248,6 +248,31 @@ export class HarnessManager {
     };
   }
 
+  private isLocalInnerHopUrl(rawUrl: unknown): boolean {
+    const url = String(rawUrl ?? '').toLowerCase();
+    const portSuffix = `:${this.port}`;
+    return (
+      (url.includes('127.0.0.1') || url.includes('localhost')) &&
+      url.includes(portSuffix)
+    );
+  }
+
+  private hasInnerHopDshProvider(providers: Record<string, unknown>): boolean {
+    if (providers.innerhop) return true;
+    return Object.values(providers).some(
+      (entry) => isRecord(entry) && this.isLocalInnerHopUrl(entry.baseURL ?? entry.baseUrl),
+    );
+  }
+
+  private deleteInnerHopDshProviders(providers: Record<string, unknown>): void {
+    delete providers.innerhop;
+    for (const [key, entry] of Object.entries(providers)) {
+      if (isRecord(entry) && this.isLocalInnerHopUrl(entry.baseURL ?? entry.baseUrl)) {
+        delete providers[key];
+      }
+    }
+  }
+
   private checkDshEnabled(target: { path: string; format: 'cordis' | 'legacy' }): boolean {
     if (!existsSync(target.path)) return false;
     try {
@@ -262,11 +287,11 @@ export class HarnessManager {
         if (!isRecord(llmEntry) || !isRecord(llmEntry.config) || !isRecord(llmEntry.config.providers)) {
           return false;
         }
-        return Boolean(llmEntry.config.providers.innerhop);
+        return this.hasInnerHopDshProvider(llmEntry.config.providers);
       }
       if (!isRecord(parsed) || !isRecord(parsed['llm-pi-ai'])) return false;
       const providers = parsed['llm-pi-ai'].providers;
-      return isRecord(providers) && Boolean(providers.innerhop);
+      return isRecord(providers) && this.hasInnerHopDshProvider(providers);
     } catch {
       return false;
     }
@@ -773,7 +798,7 @@ export class HarnessManager {
                   isRecord(entry.config) &&
                   isRecord(entry.config.providers)
                 ) {
-                  delete entry.config.providers.innerhop;
+                  this.deleteInnerHopDshProviders(entry.config.providers);
                 }
               }
               writeFileSync(target.path, stringifyYaml(parsed), 'utf8');
@@ -800,7 +825,7 @@ export class HarnessManager {
           try {
             const parsed = parseYaml(readFileSync(target.path, 'utf8'));
             if (isRecord(parsed) && isRecord(parsed['llm-pi-ai']) && isRecord(parsed['llm-pi-ai'].providers)) {
-              delete parsed['llm-pi-ai'].providers.innerhop;
+              this.deleteInnerHopDshProviders(parsed['llm-pi-ai'].providers);
               writeFileSync(target.path, stringifyYaml(parsed), 'utf8');
             }
           } catch {

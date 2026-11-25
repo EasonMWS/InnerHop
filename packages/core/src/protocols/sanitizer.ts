@@ -74,3 +74,32 @@ export function appendSystemAddendumPreservingCache(
     },
   ];
 }
+
+/**
+ * Appends dynamic per-turn orchestration context (active plan / review reason)
+ * to the trailing user message so the system prompt and earlier history prefix
+ * stay byte-identical across turns and retain KV prompt-cache hits.
+ */
+export function appendDynamicContextToTailMessage(
+  messages: CanonicalMessage[],
+  note: string | null,
+): CanonicalMessage[] {
+  if (!note) {
+    return messages;
+  }
+  const cloned = [...messages];
+  const lastIdx = cloned.length - 1;
+  if (lastIdx >= 0 && cloned[lastIdx].role === 'user') {
+    const last = cloned[lastIdx];
+    cloned[lastIdx] = {
+      ...last,
+      parts: [...last.parts, { type: 'text', text: note }],
+    };
+    return cloned;
+  }
+  cloned.push({
+    role: 'user',
+    parts: [{ type: 'text', text: note }],
+  });
+  return cloned;
+}

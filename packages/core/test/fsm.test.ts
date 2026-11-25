@@ -162,4 +162,68 @@ describe('OrchestratorFsm & Protocol Helpers', () => {
     expect(session.phase).toBe('PLANNING');
     expect(session.reviewReason).toBe('user_message');
   });
+
+  it('keeps EXECUTING phase when harness injects background subagent or system-reminder notices', () => {
+    const preset = configStore.getPresetById('claude-flagship-workhorse');
+    const session = sessionStore.getOrCreate('s4', preset.id, 'dsh');
+    fsm.onHandoff(session, { plan: 'Step 1' }, preset);
+    expect(session.phase).toBe('EXECUTING');
+
+    const noticeReq = (text: string): CanonicalRequest => ({
+      protocol: 'openai-chat',
+      requestedModel: 'innerhop',
+      systemParts: [],
+      messages: [{ role: 'user', parts: [{ type: 'text', text }] }],
+      tools: [],
+      stream: true,
+      rawHeaders: {},
+    });
+
+    fsm.onIncomingRequest(
+      session,
+      noticeReq('Background subagent editor-audit finished and will do no further work unless you send it more.'),
+      preset,
+    );
+    expect(session.phase).toBe('EXECUTING');
+
+    fsm.onIncomingRequest(
+      session,
+      noticeReq('<system-reminder>Keep executing the approved plan.</system-reminder>'),
+      preset,
+    );
+    expect(session.phase).toBe('EXECUTING');
+
+    fsm.onIncomingRequest(
+      session,
+      noticeReq('The working directory changed from "D:\\repo" to "D:\\repo\\sub"'),
+      preset,
+    );
+    expect(session.phase).toBe('EXECUTING');
+
+    // Genuine human message still transitions back to PLANNING
+    fsm.onIncomingRequest(session, noticeReq('Wait, change the API route name'), preset);
+    expect(session.phase).toBe('PLANNING');
+    expect(session.reviewReason).toBe('user_message');
+  });
+
+  it('applies 10% cached-input discount and tracks plannerCachedInput / executorCachedInput', () => {
+    const preset = configStore.getPresetById('openai-flagship-workhorse');
+    // planner: $8/1M in, $40/1M out; executor: $2/1M in, $10/1M out
+    const session = sessionStore.getOrCreate('s-cache-cost', preset.id, 'dsh');
+
+    // Planner: 1,000,000 input tokens with 800,000 cached, 0 output
+    // Expected actualCost = 0.2 * 8 + 0.8 * 0.8 = 1.6 + 0.64 = 2.24
+    fsm.recordUsage(session, 'planner', 1_000_000, 0, preset, 800_000);
+    expect(session.usage.plannerCachedInput).toBe(800_000);
+    expect(session.usage.actualCostUsd).toBeCloseTo(2.24, 6);
+    expect(session.usage.baselinePlannerCostUsd).toBeCloseTo(2.24, 6);
+
+    // Executor: 1,000,000 input tokens with 900,000 cached, 0 output
+    // Expected executor actualCost = 0.1 * 2 + 0.9 * 0.2 = 0.2 + 0.18 = 0.38
+    // Expected executor baseline = 0.1 * 8 + 0.9 * 0.8 = 0.8 + 0.72 = 1.52
+    fsm.recordUsage(session, 'executor', 1_000_000, 0, preset, 900_000);
+    expect(session.usage.executorCachedInput).toBe(900_000);
+    expect(session.usage.actualCostUsd).toBeCloseTo(2.24 + 0.38, 6);
+    expect(session.usage.baselinePlannerCostUsd).toBeCloseTo(2.24 + 1.52, 6);
+  });
 });

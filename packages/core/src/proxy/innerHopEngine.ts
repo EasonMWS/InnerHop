@@ -1,5 +1,7 @@
 import {
+  buildExecutorDynamicTailNote,
   buildExecutorSystemAddendum,
+  buildPlannerDynamicTailNote,
   buildPlannerSystemAddendum,
 } from '../fsm/prompts.js';
 import { OrchestratorFsm } from '../fsm/orchestratorFsm.js';
@@ -20,6 +22,7 @@ import type {
   CanonicalStreamEvent,
 } from '../protocols/normalized.js';
 import {
+  appendDynamicContextToTailMessage,
   appendSystemAddendumPreservingCache,
   sanitizeMessagesForTarget,
 } from '../protocols/sanitizer.js';
@@ -89,6 +92,9 @@ export async function runOrchestratedTurn(
     const addendum = isPlanner
       ? buildPlannerSystemAddendum(session)
       : buildExecutorSystemAddendum(session);
+    const tailNote = isPlanner
+      ? buildPlannerDynamicTailNote(session)
+      : buildExecutorDynamicTailNote(session);
 
     const systemParts = appendSystemAddendumPreservingCache(req.systemParts, addendum);
     const baseTools =
@@ -99,11 +105,14 @@ export async function runOrchestratedTurn(
     const virtualTool = isPlanner ? ORCHESTRATOR_HANDOFF_TOOL : ORCHESTRATOR_ESCALATE_TOOL;
     const tools = [...baseTools, virtualTool];
 
-    const sanitizedMessages = sanitizeMessagesForTarget(
-      workingMessages,
-      modelRef.modelId,
-      provider.type,
-      session.lastAssistantModel,
+    const sanitizedMessages = appendDynamicContextToTailMessage(
+      sanitizeMessagesForTarget(
+        workingMessages,
+        modelRef.modelId,
+        provider.type,
+        session.lastAssistantModel,
+      ),
+      tailNote,
     );
 
     const outboundReq: CanonicalRequest = {
@@ -111,6 +120,9 @@ export async function runOrchestratedTurn(
       systemParts,
       messages: sanitizedMessages,
       tools,
+      promptCacheKey: req.promptCacheKey
+        ? `${req.promptCacheKey}:${session.phase}`
+        : `ih_${session.id}_${session.phase}`,
     };
 
     const swallowingToolIds = new Set<string>();
@@ -120,6 +132,7 @@ export async function runOrchestratedTurn(
     let hopThinkingSignature = '';
     let hopInputTokens = 0;
     let hopOutputTokens = 0;
+    let hopCachedInputTokens = 0;
     let triggeredVirtual:
       | { kind: 'handoff'; id: string; input: Record<string, unknown> }
       | { kind: 'escalate'; id: string; input: Record<string, unknown> }
@@ -137,6 +150,7 @@ export async function runOrchestratedTurn(
       if (ev.type === 'usage') {
         hopInputTokens += ev.inputTokens;
         hopOutputTokens += ev.outputTokens;
+        hopCachedInputTokens += ev.cachedInputTokens ?? 0;
         sink.emit(ev);
         continue;
       }
@@ -225,6 +239,7 @@ export async function runOrchestratedTurn(
       hopInputTokens,
       hopOutputTokens,
       preset,
+      hopCachedInputTokens,
     );
 
     if (hadError) {

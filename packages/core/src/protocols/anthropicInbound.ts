@@ -148,6 +148,8 @@ export function createAnthropicSseSink(
   let activeBlockIndex = -1;
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
+  let totalCachedInputTokens = 0;
+  let totalCacheCreationInputTokens = 0;
   let lastStopReason: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' = 'end_turn';
   const messageId = `msg_orch_${Date.now().toString(36)}`;
 
@@ -271,6 +273,8 @@ export function createAnthropicSseSink(
         case 'usage':
           totalInputTokens += event.inputTokens;
           totalOutputTokens += event.outputTokens;
+          totalCachedInputTokens += event.cachedInputTokens ?? 0;
+          totalCacheCreationInputTokens += event.cacheCreationInputTokens ?? 0;
           break;
         case 'done':
           lastStopReason = event.stopReason;
@@ -288,12 +292,20 @@ export function createAnthropicSseSink(
       if (closed) return;
       ensureStarted();
       closeActiveBlock();
+      const uncachedInput =
+        totalCachedInputTokens > 0 || totalCacheCreationInputTokens > 0
+          ? Math.max(0, totalInputTokens - totalCachedInputTokens - totalCacheCreationInputTokens)
+          : totalInputTokens;
       sendSse('message_delta', {
         type: 'message_delta',
         delta: { stop_reason: lastStopReason, stop_sequence: null },
         usage: {
-          input_tokens: totalInputTokens,
+          input_tokens: uncachedInput,
           output_tokens: totalOutputTokens,
+          ...(totalCachedInputTokens > 0 ? { cache_read_input_tokens: totalCachedInputTokens } : {}),
+          ...(totalCacheCreationInputTokens > 0
+            ? { cache_creation_input_tokens: totalCacheCreationInputTokens }
+            : {}),
         },
       });
       sendSse('message_stop', { type: 'message_stop' });
@@ -312,6 +324,8 @@ export function buildAnthropicJsonResponse(
   let currentText = '';
   let inputTokens = 0;
   let outputTokens = 0;
+  let cachedInputTokens = 0;
+  let cacheCreationInputTokens = 0;
   let stopReason: string = 'end_turn';
 
   const flushThinking = () => {
@@ -353,12 +367,19 @@ export function buildAnthropicJsonResponse(
     } else if (ev.type === 'usage') {
       inputTokens += ev.inputTokens;
       outputTokens += ev.outputTokens;
+      cachedInputTokens += ev.cachedInputTokens ?? 0;
+      cacheCreationInputTokens += ev.cacheCreationInputTokens ?? 0;
     } else if (ev.type === 'done') {
       stopReason = ev.stopReason;
     }
   }
   flushThinking();
   flushText();
+
+  const uncachedInput =
+    cachedInputTokens > 0 || cacheCreationInputTokens > 0
+      ? Math.max(0, inputTokens - cachedInputTokens - cacheCreationInputTokens)
+      : inputTokens;
 
   return {
     id: `msg_orch_${Date.now().toString(36)}`,
@@ -368,6 +389,13 @@ export function buildAnthropicJsonResponse(
     content,
     stop_reason: stopReason,
     stop_sequence: null,
-    usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+    usage: {
+      input_tokens: uncachedInput,
+      output_tokens: outputTokens,
+      ...(cachedInputTokens > 0 ? { cache_read_input_tokens: cachedInputTokens } : {}),
+      ...(cacheCreationInputTokens > 0
+        ? { cache_creation_input_tokens: cacheCreationInputTokens }
+        : {}),
+    },
   };
 }

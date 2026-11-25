@@ -312,4 +312,28 @@ describe('HarnessManager Safe Backup & Restore', () => {
     ) as { allowDevTools?: boolean };
     expect(devSettings.allowDevTools).toBe(true);
   });
+
+  it('detects DSH as enabled when a custom provider key points to 127.0.0.1:8787', () => {
+    const dshDesktopDir = join(tmpHome, '.dsh', 'profiles', 'desktop');
+    const patchPath = join(dshDesktopDir, 'cordis.patch.yml');
+    mkdirSync(dshDesktopDir, { recursive: true });
+    writeFileSync(
+      patchPath,
+      [
+        '- id: llm-pi-ai',
+        '  name: "@deepseek-ai/dsh-llm-pi-ai"',
+        '  config:',
+        '    providers:',
+        '      my-local:',
+        '        baseURL: http://127.0.0.1:8787/v1',
+        '        models:',
+        '          - id: innerhop',
+        '            name: innerhop',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const statuses = manager.listStatuses('claude-flagship-workhorse');
+    expect(statuses.find((h) => h.id === 'dsh')?.enabled).toBe(true);
+  });
 });

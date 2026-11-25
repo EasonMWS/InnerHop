@@ -12,6 +12,77 @@ function joinUrl(base: string, path: string): string {
   return `${b}${p}`;
 }
 
+const MAX_RATE_LIMIT_RETRIES = 3;
+
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status === 503 || status === 529;
+}
+
+function isRateLimitErrorMessage(msg: string): boolean {
+  return /rate[_\s-]?limit|too many requests|tokens per min|\btpm\b|\brpm\b|overloaded/i.test(msg);
+}
+
+function parseRetryDelayMs(
+  headers: Headers | null,
+  errorText: string,
+  attempt: number,
+): number {
+  const maxDelay = Number(process.env.INNERHOP_RETRY_MAX_MS ?? 20_000);
+  const clamp = (ms: number) => Math.max(50, Math.min(maxDelay, Math.round(ms)));
+
+  const retryAfterMs = headers?.get('retry-after-ms');
+  if (retryAfterMs) {
+    const n = Number(retryAfterMs);
+    if (Number.isFinite(n) && n > 0) return clamp(n + 150);
+  }
+
+  const retryAfter = headers?.get('retry-after');
+  if (retryAfter) {
+    const secs = Number(retryAfter);
+    if (Number.isFinite(secs) && secs > 0) return clamp(secs * 1000 + 150);
+    const ts = Date.parse(retryAfter);
+    if (!Number.isNaN(ts)) {
+      const diff = ts - Date.now();
+      if (diff > 0) return clamp(diff + 150);
+    }
+  }
+
+  const hintMatch = errorText.match(/try again in\s+(\d+(?:\.\d+)?)\s*(ms|s)\b/i);
+  if (hintMatch) {
+    const val = Number(hintMatch[1]);
+    if (Number.isFinite(val) && val > 0) {
+      return clamp((hintMatch[2].toLowerCase() === 'ms' ? val : val * 1000) + 250);
+    }
+  }
+
+  const base = Number(process.env.INNERHOP_RETRY_BASE_MS ?? 1800);
+  const jitter = Math.random() * 400;
+  return clamp(base * Math.pow(2, attempt) + jitter);
+}
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchUpstreamWithRetry(
+  url: string,
+  init: RequestInit,
+  onRetry?: () => void,
+): Promise<{ res: Response }> {
+  for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
+    const res = await fetch(url, init);
+    if (res.ok || !isRetryableStatus(res.status) || attempt === MAX_RATE_LIMIT_RETRIES) {
+      return { res };
+    }
+    const errText = await res.text().catch(() => res.statusText);
+    const delayMs = parseRetryDelayMs(res.headers, errText, attempt);
+    onRetry?.();
+    await sleepMs(delayMs);
+  }
+  const res = await fetch(url, init);
+  return { res };
+}
+
 export function hasDisallowedConsumerSessionHeaders(headers: Record<string, string>): boolean {
   return Boolean(headers['chatgpt-account-id']);
 }
@@ -419,10 +490,11 @@ async function* streamAnthropicUpstream(
   }
 
   const url = joinUrl(provider.baseUrl, '/v1/messages');
-  const res = await fetch(url, {
+  const bodyStr = JSON.stringify(toAnthropicPayload(req, modelId, reasoningEffort));
+  const { res } = await fetchUpstreamWithRetry(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify(toAnthropicPayload(req, modelId, reasoningEffort)),
+    body: bodyStr,
   });
 
   if (!res.ok || !res.body) {
@@ -452,10 +524,30 @@ async function* streamAnthropicUpstream(
 
     const evType = String(payload.type ?? frame.event);
     if (evType === 'message_start') {
-      const msg = payload.message as { id?: string; usage?: { input_tokens?: number } } | undefined;
+      const msg = payload.message as
+        | {
+            id?: string;
+            usage?: {
+              input_tokens?: number;
+              cache_read_input_tokens?: number;
+              cache_creation_input_tokens?: number;
+            };
+          }
+        | undefined;
       yield { type: 'start', model: modelId, messageId: msg?.id ?? '' };
-      if (msg?.usage?.input_tokens) {
-        yield { type: 'usage', inputTokens: msg.usage.input_tokens, outputTokens: 0 };
+      if (msg?.usage) {
+        const cached = msg.usage.cache_read_input_tokens ?? 0;
+        const created = msg.usage.cache_creation_input_tokens ?? 0;
+        const totalInput = (msg.usage.input_tokens ?? 0) + cached + created;
+        if (totalInput > 0) {
+          yield {
+            type: 'usage',
+            inputTokens: totalInput,
+            outputTokens: 0,
+            ...(cached > 0 ? { cachedInputTokens: cached } : {}),
+            ...(created > 0 ? { cacheCreationInputTokens: created } : {}),
+          };
+        }
       }
     } else if (evType === 'content_block_start') {
       const idx = Number(payload.index ?? 0);
@@ -506,12 +598,24 @@ async function* streamAnthropicUpstream(
       if (delta?.stop_reason === 'tool_use') stopReason = 'tool_use';
       else if (delta?.stop_reason === 'max_tokens') stopReason = 'max_tokens';
       else if (delta?.stop_reason === 'stop_sequence') stopReason = 'stop_sequence';
-      const usage = payload.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+      const usage = payload.usage as
+        | {
+            input_tokens?: number;
+            output_tokens?: number;
+            cache_read_input_tokens?: number;
+            cache_creation_input_tokens?: number;
+          }
+        | undefined;
       if (usage) {
+        const cached = usage.cache_read_input_tokens ?? 0;
+        const created = usage.cache_creation_input_tokens ?? 0;
+        const totalInput = (usage.input_tokens ?? 0) + cached + created;
         yield {
           type: 'usage',
-          inputTokens: usage.input_tokens ?? 0,
+          inputTokens: totalInput,
           outputTokens: usage.output_tokens ?? 0,
+          ...(cached > 0 ? { cachedInputTokens: cached } : {}),
+          ...(created > 0 ? { cacheCreationInputTokens: created } : {}),
         };
       }
     } else if (evType === 'error') {
@@ -542,10 +646,11 @@ async function* streamOpenAIUpstream(
   }
 
   const url = joinUrl(provider.baseUrl, '/chat/completions');
-  const res = await fetch(url, {
+  const bodyStr = JSON.stringify(toOpenAIChatPayload(req, modelId, provider, reasoningEffort));
+  const { res } = await fetchUpstreamWithRetry(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify(toOpenAIChatPayload(req, modelId, provider, reasoningEffort)),
+    body: bodyStr,
   });
 
   if (!res.ok || !res.body) {
@@ -576,11 +681,18 @@ async function* streamOpenAIUpstream(
     }
 
     if (payload.usage && typeof payload.usage === 'object') {
-      const u = payload.usage as { prompt_tokens?: number; completion_tokens?: number };
+      const u = payload.usage as {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        prompt_tokens_details?: { cached_tokens?: number };
+        prompt_cache_hit_tokens?: number;
+      };
+      const cached = u.prompt_tokens_details?.cached_tokens ?? u.prompt_cache_hit_tokens ?? 0;
       yield {
         type: 'usage',
         inputTokens: u.prompt_tokens ?? 0,
         outputTokens: u.completion_tokens ?? 0,
+        ...(cached > 0 ? { cachedInputTokens: cached } : {}),
       };
     }
 
@@ -743,6 +855,7 @@ function toOpenAIResponsesPayload(
     ...(tools.length > 0 ? { tools } : {}),
     ...(mappedEffort ? { reasoning: { effort: mappedEffort } } : {}),
     ...(req.maxTokens ? { max_output_tokens: req.maxTokens } : {}),
+    ...(req.promptCacheKey ? { prompt_cache_key: req.promptCacheKey } : {}),
     ...(!omitTemperature && req.temperature !== undefined
       ? { temperature: req.temperature }
       : {}),
@@ -770,114 +883,148 @@ async function* streamOpenAIResponsesUpstream(
   }
 
   const url = joinUrl(provider.baseUrl, '/responses');
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(toOpenAIResponsesPayload(req, modelId, reasoningEffort)),
-  });
+  const bodyStr = JSON.stringify(toOpenAIResponsesPayload(req, modelId, reasoningEffort));
 
-  if (!res.ok || !res.body) {
-    const errText = await res.text().catch(() => res.statusText);
-    yield {
-      type: 'error',
-      statusCode: res.status,
-      message: `Upstream Responses error (${res.status}): ${errText.slice(0, 400)}`,
-    };
-    return;
-  }
+  for (let streamAttempt = 0; streamAttempt <= MAX_RATE_LIMIT_RETRIES; streamAttempt++) {
+    const { res } = await fetchUpstreamWithRetry(url, {
+      method: 'POST',
+      headers,
+      body: bodyStr,
+    });
 
-  const activeTools = new Map<number, { id: string; name: string; jsonBuf: string }>();
-  let sawToolCall = false;
-
-  for await (const frame of parseSseLines(res.body)) {
-    if (frame.data === '[DONE]') break;
-    let payload: Record<string, unknown>;
-    try {
-      payload = JSON.parse(frame.data) as Record<string, unknown>;
-    } catch {
-      continue;
-    }
-
-    const evType = String(payload.type ?? frame.event);
-
-    if (evType === 'response.created') {
-      const resp = payload.response as { id?: string } | undefined;
-      yield { type: 'start', model: modelId, messageId: resp?.id ?? '' };
-    } else if (evType === 'response.output_text.delta' && typeof payload.delta === 'string') {
-      yield { type: 'text_delta', text: payload.delta };
-    } else if (
-      evType === 'response.reasoning_summary_text.delta' &&
-      typeof payload.delta === 'string'
-    ) {
-      yield { type: 'thinking_delta', thinking: payload.delta };
-    } else if (evType === 'response.output_item.added') {
-      const idx = Number(payload.output_index ?? 0);
-      const item = payload.item as Record<string, unknown> | undefined;
-      if (item?.type === 'function_call') {
-        const id = String(item.call_id ?? item.id ?? `call_${idx}`);
-        const name = String(item.name ?? '');
-        activeTools.set(idx, { id, name, jsonBuf: '' });
-        sawToolCall = true;
-        yield { type: 'tool_call_start', id, name };
-      }
-    } else if (
-      evType === 'response.function_call_arguments.delta' &&
-      typeof payload.delta === 'string'
-    ) {
-      const idx = Number(payload.output_index ?? 0);
-      const tool = activeTools.get(idx);
-      if (tool) {
-        tool.jsonBuf += payload.delta;
-        yield { type: 'tool_call_delta', id: tool.id, partialJson: payload.delta };
-      }
-    } else if (evType === 'response.output_item.done') {
-      const idx = Number(payload.output_index ?? 0);
-      const item = payload.item as Record<string, unknown> | undefined;
-      const tool = activeTools.get(idx);
-      if (item?.type === 'function_call' && tool) {
-        const rawJson =
-          typeof item.arguments === 'string' && item.arguments.length > 0
-            ? item.arguments
-            : tool.jsonBuf;
-        let parsed: Record<string, unknown> = {};
-        try {
-          parsed = rawJson ? (JSON.parse(rawJson) as Record<string, unknown>) : {};
-        } catch {
-          parsed = {};
-        }
-        yield {
-          type: 'tool_call_end',
-          id: tool.id,
-          name: tool.name,
-          input: parsed,
-          rawJson,
-        };
-        activeTools.delete(idx);
-      }
-    } else if (evType === 'response.completed' || evType === 'response.incomplete') {
-      const resp = payload.response as
-        | { usage?: { input_tokens?: number; output_tokens?: number } }
-        | undefined;
-      if (resp?.usage) {
-        yield {
-          type: 'usage',
-          inputTokens: resp.usage.input_tokens ?? 0,
-          outputTokens: resp.usage.output_tokens ?? 0,
-        };
-      }
-    } else if (evType === 'error' || evType === 'response.failed') {
-      const errObj =
-        (payload.error as { message?: string } | undefined) ??
-        ((payload.response as { error?: { message?: string } } | undefined)?.error);
+    if (!res.ok || !res.body) {
+      const errText = await res.text().catch(() => res.statusText);
       yield {
         type: 'error',
-        message: errObj?.message ?? 'OpenAI Responses stream error',
+        statusCode: res.status,
+        message: `Upstream Responses error (${res.status}): ${errText.slice(0, 400)}`,
       };
       return;
     }
-  }
 
-  yield { type: 'done', stopReason: sawToolCall ? 'tool_use' : 'end_turn' };
+    const activeTools = new Map<number, { id: string; name: string; jsonBuf: string }>();
+    let sawToolCall = false;
+    let emittedOutput = false;
+    let shouldRetryStream = false;
+
+    for await (const frame of parseSseLines(res.body)) {
+      if (frame.data === '[DONE]') break;
+      let payload: Record<string, unknown>;
+      try {
+        payload = JSON.parse(frame.data) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+
+      const evType = String(payload.type ?? frame.event);
+
+      if (evType === 'response.created') {
+        const resp = payload.response as { id?: string } | undefined;
+        yield { type: 'start', model: modelId, messageId: resp?.id ?? '' };
+      } else if (evType === 'response.output_text.delta' && typeof payload.delta === 'string') {
+        emittedOutput = true;
+        yield { type: 'text_delta', text: payload.delta };
+      } else if (
+        evType === 'response.reasoning_summary_text.delta' &&
+        typeof payload.delta === 'string'
+      ) {
+        emittedOutput = true;
+        yield { type: 'thinking_delta', thinking: payload.delta };
+      } else if (evType === 'response.output_item.added') {
+        const idx = Number(payload.output_index ?? 0);
+        const item = payload.item as Record<string, unknown> | undefined;
+        if (item?.type === 'function_call') {
+          emittedOutput = true;
+          const id = String(item.call_id ?? item.id ?? `call_${idx}`);
+          const name = String(item.name ?? '');
+          activeTools.set(idx, { id, name, jsonBuf: '' });
+          sawToolCall = true;
+          yield { type: 'tool_call_start', id, name };
+        }
+      } else if (
+        evType === 'response.function_call_arguments.delta' &&
+        typeof payload.delta === 'string'
+      ) {
+        const idx = Number(payload.output_index ?? 0);
+        const tool = activeTools.get(idx);
+        if (tool) {
+          tool.jsonBuf += payload.delta;
+          yield { type: 'tool_call_delta', id: tool.id, partialJson: payload.delta };
+        }
+      } else if (evType === 'response.output_item.done') {
+        const idx = Number(payload.output_index ?? 0);
+        const item = payload.item as Record<string, unknown> | undefined;
+        const tool = activeTools.get(idx);
+        if (item?.type === 'function_call' && tool) {
+          const rawJson =
+            typeof item.arguments === 'string' && item.arguments.length > 0
+              ? item.arguments
+              : tool.jsonBuf;
+          let parsed: Record<string, unknown> = {};
+          try {
+            parsed = rawJson ? (JSON.parse(rawJson) as Record<string, unknown>) : {};
+          } catch {
+            parsed = {};
+          }
+          yield {
+            type: 'tool_call_end',
+            id: tool.id,
+            name: tool.name,
+            input: parsed,
+            rawJson,
+          };
+          activeTools.delete(idx);
+        }
+      } else if (evType === 'response.completed' || evType === 'response.incomplete') {
+        const resp = payload.response as
+          | {
+              usage?: {
+                input_tokens?: number;
+                output_tokens?: number;
+                input_tokens_details?: { cached_tokens?: number };
+              };
+            }
+          | undefined;
+        if (resp?.usage) {
+          const cached = resp.usage.input_tokens_details?.cached_tokens ?? 0;
+          yield {
+            type: 'usage',
+            inputTokens: resp.usage.input_tokens ?? 0,
+            outputTokens: resp.usage.output_tokens ?? 0,
+            ...(cached > 0 ? { cachedInputTokens: cached } : {}),
+          };
+        }
+      } else if (evType === 'error' || evType === 'response.failed') {
+        const errObj =
+          (payload.error as { message?: string; code?: string } | undefined) ??
+          ((payload.response as { error?: { message?: string; code?: string } } | undefined)?.error);
+        const errMsg = errObj?.message ?? 'OpenAI Responses stream error';
+        const isRl =
+          !emittedOutput &&
+          streamAttempt < MAX_RATE_LIMIT_RETRIES &&
+          (errObj?.code === 'rate_limit_exceeded' || isRateLimitErrorMessage(errMsg));
+        if (isRl) {
+          const delayMs = parseRetryDelayMs(res.headers, errMsg, streamAttempt);
+          yield { type: 'ping' };
+          await sleepMs(delayMs);
+          shouldRetryStream = true;
+          break;
+        }
+        yield {
+          type: 'error',
+          message: errMsg,
+        };
+        return;
+      }
+    }
+
+    if (shouldRetryStream) {
+      continue;
+    }
+
+    yield { type: 'done', stopReason: sawToolCall ? 'tool_use' : 'end_turn' };
+    return;
+  }
 }
 
 export async function* streamUpstreamTurn(

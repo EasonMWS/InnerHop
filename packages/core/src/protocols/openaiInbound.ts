@@ -165,6 +165,7 @@ export function createOpenAIChatSseSink(
   let finishReason: string = 'stop';
   let inputTokens = 0;
   let outputTokens = 0;
+  let cachedInputTokens = 0;
 
   const sendChunk = (delta: Record<string, unknown>, finish: string | null = null, usage?: unknown) => {
     const payload: Record<string, unknown> = {
@@ -226,6 +227,7 @@ export function createOpenAIChatSseSink(
         case 'usage':
           inputTokens += event.inputTokens;
           outputTokens += event.outputTokens;
+          cachedInputTokens += event.cachedInputTokens ?? 0;
           break;
         case 'done':
           finishReason = event.stopReason === 'tool_use' ? 'tool_calls' : 'stop';
@@ -241,6 +243,8 @@ export function createOpenAIChatSseSink(
         prompt_tokens: inputTokens,
         completion_tokens: outputTokens,
         total_tokens: inputTokens + outputTokens,
+        prompt_tokens_details: { cached_tokens: cachedInputTokens },
+        prompt_cache_hit_tokens: cachedInputTokens,
       });
       enqueue('data: [DONE]\n\n');
       closed = true;
@@ -257,6 +261,7 @@ export function buildOpenAIChatJsonResponse(
   const toolCalls: Array<Record<string, unknown>> = [];
   let inputTokens = 0;
   let outputTokens = 0;
+  let cachedInputTokens = 0;
   let finishReason = 'stop';
 
   for (const ev of events) {
@@ -274,6 +279,7 @@ export function buildOpenAIChatJsonResponse(
     } else if (ev.type === 'usage') {
       inputTokens += ev.inputTokens;
       outputTokens += ev.outputTokens;
+      cachedInputTokens += ev.cachedInputTokens ?? 0;
     } else if (ev.type === 'done') {
       finishReason = ev.stopReason === 'tool_use' ? 'tool_calls' : 'stop';
     }
@@ -300,6 +306,8 @@ export function buildOpenAIChatJsonResponse(
       prompt_tokens: inputTokens,
       completion_tokens: outputTokens,
       total_tokens: inputTokens + outputTokens,
+      prompt_tokens_details: { cached_tokens: cachedInputTokens },
+      prompt_cache_hit_tokens: cachedInputTokens,
     },
   };
 }
@@ -424,6 +432,7 @@ export function createOpenAIResponsesSseSink(
   const completedOutput: Array<Record<string, unknown>> = [];
   let inputTokens = 0;
   let outputTokens = 0;
+  let cachedInputTokens = 0;
 
   const sendEv = (type: string, data: Record<string, unknown>) => {
     enqueue(`event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`);
@@ -546,6 +555,7 @@ export function createOpenAIResponsesSseSink(
         case 'usage':
           inputTokens += event.inputTokens;
           outputTokens += event.outputTokens;
+          cachedInputTokens += event.cachedInputTokens ?? 0;
           break;
         case 'error':
           sendEv('error', { error: { message: event.message } });
@@ -567,6 +577,7 @@ export function createOpenAIResponsesSseSink(
             input_tokens: inputTokens,
             output_tokens: outputTokens,
             total_tokens: inputTokens + outputTokens,
+            input_tokens_details: { cached_tokens: cachedInputTokens },
           },
         },
       });
@@ -583,6 +594,7 @@ export function buildOpenAIResponsesJsonResponse(
   const output: Array<Record<string, unknown>> = [];
   let inputTokens = 0;
   let outputTokens = 0;
+  let cachedInputTokens = 0;
 
   for (const ev of events) {
     if (ev.type === 'text_delta') text += ev.text;
@@ -598,6 +610,7 @@ export function buildOpenAIResponsesJsonResponse(
     } else if (ev.type === 'usage') {
       inputTokens += ev.inputTokens;
       outputTokens += ev.outputTokens;
+      cachedInputTokens += ev.cachedInputTokens ?? 0;
     }
   }
   if (text) {
@@ -620,6 +633,7 @@ export function buildOpenAIResponsesJsonResponse(
       input_tokens: inputTokens,
       output_tokens: outputTokens,
       total_tokens: inputTokens + outputTokens,
+      input_tokens_details: { cached_tokens: cachedInputTokens },
     },
   };
 }

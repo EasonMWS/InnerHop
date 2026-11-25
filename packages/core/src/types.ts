@@ -97,8 +97,10 @@ export interface TimelineEvent {
 export interface SessionUsage {
   plannerInput: number;
   plannerOutput: number;
+  plannerCachedInput?: number;
   executorInput: number;
   executorOutput: number;
+  executorCachedInput?: number;
   actualCostUsd: number;
   baselinePlannerCostUsd: number;
 }

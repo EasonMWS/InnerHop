@@ -133,7 +133,7 @@ export function createDefaultConfig(): OrchestratorConfig {
         rules: {
           readOnlyPlanning: true,
           maxConsecutiveErrors: 2,
-          reviewEverySteps: 10,
+          reviewEverySteps: 0,
           maxHopsPerRequest: 2,
           inlineStatusBadge: false,
         },
@@ -157,7 +157,7 @@ export function createDefaultConfig(): OrchestratorConfig {
         rules: {
           readOnlyPlanning: true,
           maxConsecutiveErrors: 2,
-          reviewEverySteps: 10,
+          reviewEverySteps: 0,
           maxHopsPerRequest: 2,
           inlineStatusBadge: false,
         },
@@ -181,7 +181,7 @@ export function createDefaultConfig(): OrchestratorConfig {
         rules: {
           readOnlyPlanning: true,
           maxConsecutiveErrors: 2,
-          reviewEverySteps: 8,
+          reviewEverySteps: 0,
           maxHopsPerRequest: 2,
           inlineStatusBadge: false,
         },

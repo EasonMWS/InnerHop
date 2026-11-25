@@ -47,6 +47,7 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
   let recordedCalls: RecordedUpstreamCall[];
   let nextPlannerAction: 'qa' | 'read' | 'handoff' = 'handoff';
   let nextExecutorAction: 'edit' | 'escalate' = 'edit';
+  let failNextResponsesWithRateLimit = false;
   let proxyHandle: ReturnType<typeof createOrchestratorServer>;
   let proxyUrl: string;
 
@@ -55,6 +56,7 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
     recordedCalls = [];
     nextPlannerAction = 'handoff';
     nextExecutorAction = 'edit';
+    failNextResponsesWithRateLimit = false;
 
     mockUpstream = createServer((req, res) => {
       let bodyStr = '';
@@ -196,6 +198,19 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
         } else if (isResponses) {
           const sendResp = (ev: string, data: Record<string, unknown>) =>
             res.write(`event: ${ev}\ndata: ${JSON.stringify({ type: ev, ...data })}\n\n`);
+          if (failNextResponsesWithRateLimit) {
+            failNextResponsesWithRateLimit = false;
+            sendResp('response.failed', {
+              response: {
+                error: {
+                  code: 'rate_limit_exceeded',
+                  message: 'Rate limit reached for gpt-6.2-astra on tokens per min (TPM): Limit 1000000',
+                },
+              },
+            });
+            res.end();
+            return;
+          }
           sendResp('response.created', { response: { id: 'resp_up_1' } });
           if (model === 'gpt-6-astra' || model === 'gpt-6.2-astra') {
             const argsStr = JSON.stringify({
@@ -286,6 +301,18 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
             });
             sendChunk({}, 'tool_calls');
           }
+          res.write(
+            `data: ${JSON.stringify({
+              id: 'c1',
+              object: 'chat.completion.chunk',
+              choices: [],
+              usage: {
+                prompt_tokens: 1000,
+                completion_tokens: 50,
+                prompt_tokens_details: { cached_tokens: 800 },
+              },
+            })}\n\n`,
+          );
           res.write('data: [DONE]\n\n');
           res.end();
         }
@@ -520,7 +547,9 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
     expect(recordedCalls).toHaveLength(2);
     expect(recordedCalls[0].model).toBe('executor-flash');
     expect(recordedCalls[1].model).toBe('planner-opus');
-    expect(recordedCalls[1].systemText).toContain('[PLAN REVIEW TRIGGERED]');
+    // Dynamic review context lives in tail user message, NOT systemText, keeping system prompt static for cache hits
+    expect(recordedCalls[1].systemText).not.toContain('[PLAN REVIEW TRIGGERED]');
+    expect(JSON.stringify(recordedCalls[1].messages)).toContain('[PLAN REVIEW TRIGGERED]');
     expect(raw2).toContain('Direct Q&A answer.');
     expect(raw2).not.toContain(VIRTUAL_ESCALATE_TOOL_NAME);
   });
@@ -1245,5 +1274,147 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
     await msgRes.text();
     expect(recordedCalls).toHaveLength(1);
     expect(recordedCalls[0].model).toBe('planner-opus');
+  });
+
+  it('automatically retries OpenAI Responses stream on rate_limit_exceeded without failing the turn', async () => {
+    const cfg = proxyHandle.configStore.getConfig();
+    proxyHandle.configStore.updateConfig({
+      ...cfg,
+      activePresetId: 'e2e-openai-responses',
+    });
+
+    const prevBase = process.env.INNERHOP_RETRY_BASE_MS;
+    const prevMax = process.env.INNERHOP_RETRY_MAX_MS;
+    process.env.INNERHOP_RETRY_BASE_MS = '50';
+    process.env.INNERHOP_RETRY_MAX_MS = '100';
+    failNextResponsesWithRateLimit = true;
+    recordedCalls = [];
+
+    try {
+      const res = await fetch(`${proxyUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-orchestrator-session': 'rl-retry-sess',
+        },
+        body: JSON.stringify({
+          model: 'innerhop',
+          stream: true,
+          messages: [{ role: 'user', content: 'Implement feature X' }],
+          tools: [{ type: 'function', function: { name: 'apply_patch', parameters: { type: 'object' } } }],
+        }),
+      });
+      expect(res.status).toBe(200);
+      const raw = await res.text();
+      expect(raw).not.toContain('Rate limit reached');
+      expect(raw).toContain('Codex executor running.');
+      // 1st call failed rate_limit_exceeded (planner), 2nd call retried planner + handoff, 3rd call executor
+      expect(recordedCalls.length).toBeGreaterThanOrEqual(3);
+    } finally {
+      if (prevBase === undefined) delete process.env.INNERHOP_RETRY_BASE_MS;
+      else process.env.INNERHOP_RETRY_BASE_MS = prevBase;
+      if (prevMax === undefined) delete process.env.INNERHOP_RETRY_MAX_MS;
+      else process.env.INNERHOP_RETRY_MAX_MS = prevMax;
+    }
+  });
+
+  it('preserves static system prompts, sends prompt_cache_key, and forwards cached_tokens downstream', async () => {
+    // 1. Verify OpenAI Responses upstream receives a stable prompt_cache_key
+    const cfg = proxyHandle.configStore.getConfig();
+    proxyHandle.configStore.updateConfig({
+      ...cfg,
+      activePresetId: 'e2e-openai-responses',
+    });
+    recordedCalls = [];
+    const r1 = await fetch(`${proxyUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-orchestrator-session': 'cache-key-sess',
+      },
+      body: JSON.stringify({
+        model: 'innerhop',
+        stream: true,
+        messages: [{ role: 'user', content: 'Build module' }],
+        tools: [{ type: 'function', function: { name: 'apply_patch', parameters: { type: 'object' } } }],
+      }),
+    });
+    expect(r1.status).toBe(200);
+    await r1.text();
+    expect(recordedCalls.length).toBeGreaterThanOrEqual(2);
+    expect(recordedCalls[0].rawBody.prompt_cache_key).toBe('ih_hdr:cache-key-sess_PLANNING');
+    expect(recordedCalls[1].rawBody.prompt_cache_key).toBe('ih_hdr:cache-key-sess_EXECUTING');
+    expect(recordedCalls[1].systemText).not.toContain('<active_plan version=');
+    expect(recordedCalls[1].systemText).not.toContain('<innerhop_context');
+    expect(JSON.stringify(recordedCalls[1].messages)).toContain('<active_plan version=');
+
+    // 2. Verify e2e-pair keeps Planner systemText byte-identical across review & forwards cached_tokens from OpenAI-compat Executor
+    proxyHandle.configStore.updateConfig({
+      ...cfg,
+      activePresetId: 'e2e-pair',
+    });
+    recordedCalls = [];
+    nextPlannerAction = 'handoff';
+    nextExecutorAction = 'edit';
+
+    const chatRes = await fetch(`${proxyUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-orchestrator-session': 'cache-usage-sess',
+      },
+      body: JSON.stringify({
+        model: 'innerhop',
+        stream: true,
+        messages: [{ role: 'user', content: 'Fix bug' }],
+        tools: [
+          { type: 'function', function: { name: 'Read', parameters: { type: 'object' } } },
+          { type: 'function', function: { name: 'Edit', parameters: { type: 'object' } } },
+        ],
+      }),
+    });
+    expect(chatRes.status).toBe(200);
+    const chatRaw = await chatRes.text();
+    expect(chatRaw).toContain('"cached_tokens":800');
+    expect(chatRaw).toContain('"prompt_cache_hit_tokens":800');
+
+    const plannerSysTurn1 = recordedCalls[0].systemText;
+
+    // Trigger user follow-up review (PLANNING again) and ensure Planner systemText is byte-identical
+    nextPlannerAction = 'qa';
+    const followRes = await fetch(`${proxyUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-orchestrator-session': 'cache-usage-sess',
+      },
+      body: JSON.stringify({
+        model: 'innerhop',
+        stream: true,
+        messages: [
+          { role: 'user', content: 'Fix bug' },
+          { role: 'assistant', content: 'Executor applying edit.' },
+          { role: 'user', content: 'Now explain the fix' },
+        ],
+        tools: [
+          { type: 'function', function: { name: 'Read', parameters: { type: 'object' } } },
+          { type: 'function', function: { name: 'Edit', parameters: { type: 'object' } } },
+        ],
+      }),
+    });
+    expect(followRes.status).toBe(200);
+    await followRes.text();
+    const plannerSysTurn2 = recordedCalls[recordedCalls.length - 1].systemText;
+    expect(plannerSysTurn2).toBe(plannerSysTurn1);
+    expect(JSON.stringify(recordedCalls[recordedCalls.length - 1].messages)).toContain('[PLAN REVIEW TRIGGERED]');
+
+    // Verify session usage recorded executorCachedInput = 800
+    const sessRes = await fetch(`${proxyUrl}/api/sessions`);
+    const sessList = (await sessRes.json()) as Array<{
+      id: string;
+      usage: { executorCachedInput?: number; actualCostUsd: number };
+    }>;
+    const found = sessList.find((s) => s.id === 'hdr:cache-usage-sess');
+    expect(found?.usage.executorCachedInput).toBe(800);
   });
 });

@@ -68,6 +68,12 @@ export type CanonicalStreamEvent =
       thoughtSignature?: string;
     }
   | { type: 'ping' }
-  | { type: 'usage'; inputTokens: number; outputTokens: number }
+  | {
+      type: 'usage';
+      inputTokens: number;
+      outputTokens: number;
+      cachedInputTokens?: number;
+      cacheCreationInputTokens?: number;
+    }
   | { type: 'done'; stopReason: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' }
   | { type: 'error'; message: string; statusCode?: number };

@@ -140,19 +140,23 @@ describe('HarnessManager Safe Backup & Restore', () => {
     expect(updated).toContain('[profiles.innerhop]');
   });
 
-  it('lists 5 one-click harnesses with explicit surfaces and 1 unified 其他 Harness entry', () => {
+  it('lists one-click harnesses with explicit surfaces plus Claude Desktop Gateway and 其他 Harness entries', () => {
     const statuses = manager.listStatuses('claude-flagship-workhorse');
     expect(statuses.map((s) => s.id)).toEqual([
       'opencode',
       'dsh',
       'claude-code',
+      'claude-desktop',
       'codex',
       'aider',
       'other',
     ]);
     expect(statuses.find((s) => s.id === 'opencode')?.surface).toBe('gui-and-cli');
     expect(statuses.find((s) => s.id === 'dsh')?.surface).toBe('gui-and-cli');
-    expect(statuses.find((s) => s.id === 'claude-code')?.surface).toBe('cli-only');
+    expect(statuses.find((s) => s.id === 'claude-code')?.surface).toBe('gui-and-cli');
+    expect(statuses.find((s) => s.id === 'claude-desktop')?.mode).toBe('one-click');
+    expect(statuses.find((s) => s.id === 'claude-desktop')?.surface).toBe('gui-and-cli');
+    expect(statuses.find((s) => s.id === 'claude-desktop')?.copyConfig?.baseUrl).toBe('http://127.0.0.1:8787');
     expect(statuses.find((s) => s.id === 'codex')?.surface).toBe('cli-only');
     expect(statuses.find((s) => s.id === 'aider')?.surface).toBe('cli-only');
 
@@ -256,5 +260,56 @@ describe('HarnessManager Safe Backup & Restore', () => {
     const afterDisable = manager.disableHarness('aider', 'claude-flagship-workhorse');
     expect(afterDisable.find((h) => h.id === 'aider')?.enabled).toBe(false);
     expect(readFileSync(aiderPath, 'utf8')).toBe(original);
+  });
+
+  it('exports official Claude Desktop Gateway JSON and toggles Claude-3p cleanly with lossless restore', () => {
+    const baseRoot =
+      process.platform === 'win32'
+        ? join(tmpHome, 'AppData', 'Local')
+        : process.platform === 'darwin'
+          ? join(tmpHome, 'Library', 'Application Support')
+          : join(tmpHome, '.config');
+    const c1pDir =
+      process.platform === 'win32'
+        ? join(baseRoot, 'Claude-Data', 'claude_testpkg')
+        : join(baseRoot, 'Claude');
+    const c3pDir = join(baseRoot, 'Claude-3p');
+    const c3pDisabledDir = join(baseRoot, 'Claude-3p.innerhop-disabled');
+
+    mkdirSync(c1pDir, { recursive: true });
+    mkdirSync(join(c3pDir, 'configLibrary'), { recursive: true });
+    writeFileSync(
+      join(c3pDir, 'configLibrary', '_meta.json'),
+      JSON.stringify({ appliedId: 'innerhop', entries: [{ id: 'innerhop', name: 'InnerHop' }] }),
+      'utf8',
+    );
+
+    // Initially active because Claude-3p/configLibrary/_meta.json exists
+    const initial = manager.listStatuses('claude-flagship-workhorse');
+    expect(initial.find((h) => h.id === 'claude-desktop')?.enabled).toBe(true);
+
+    // One-click disable restores 1P by moving Claude-3p -> Claude-3p.innerhop-disabled
+    const afterDisable = manager.disableHarness('claude-desktop', 'claude-flagship-workhorse');
+    expect(afterDisable.find((h) => h.id === 'claude-desktop')?.enabled).toBe(false);
+    expect(existsSync(c3pDir)).toBe(false);
+    expect(existsSync(c3pDisabledDir)).toBe(true);
+
+    // One-click re-enable moves Claude-3p.innerhop-disabled back, exports JSON, and enables allowDevTools
+    const afterEnable = manager.enableHarness('claude-desktop', 'claude-flagship-workhorse');
+    expect(afterEnable.find((h) => h.id === 'claude-desktop')?.enabled).toBe(true);
+    expect(existsSync(c3pDir)).toBe(true);
+    expect(existsSync(c3pDisabledDir)).toBe(false);
+
+    const exported = JSON.parse(
+      readFileSync(join(tmpData, 'claude-desktop-gateway.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(exported.inferenceProvider).toBe('gateway');
+    expect(exported.inferenceGatewayBaseUrl).toBe('http://127.0.0.1:8787');
+    expect(exported.inferenceGatewayApiKey).toBe('innerhop-local');
+
+    const devSettings = JSON.parse(
+      readFileSync(join(c1pDir, 'developer_settings.json'), 'utf8'),
+    ) as { allowDevTools?: boolean };
+    expect(devSettings.allowDevTools).toBe(true);
   });
 });

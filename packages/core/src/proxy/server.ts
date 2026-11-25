@@ -69,6 +69,14 @@ function isLoopbackHost(host: string): boolean {
   return h === '127.0.0.1' || h === 'localhost' || h === '::1';
 }
 
+function isInnerHopLocalKey(headers: Record<string, string>): boolean {
+  const xApiKey = (headers['x-api-key'] ?? '').trim().toLowerCase();
+  if (xApiKey === 'innerhop-local') return true;
+  const auth = (headers['authorization'] ?? '').trim();
+  const bearer = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim().toLowerCase() : '';
+  return bearer === 'innerhop-local';
+}
+
 export function createOrchestratorServer(
   options: OrchestratorServerOptions = {},
 ): OrchestratorServerHandle {
@@ -272,18 +280,40 @@ export function createOrchestratorServer(
 
   app.get('/v1/models', (c) => {
     const cfg = configStore.getConfig();
+    const createdAt = '2026-01-01T00:00:00Z';
+    const models = [
+      {
+        id: 'innerhop',
+        type: 'model',
+        display_name: 'InnerHop (Active Dual-Model Strategy)',
+        created_at: createdAt,
+        object: 'model',
+        created: 1700000000,
+        owned_by: 'innerhop',
+      },
+      ...cfg.presets.map((p) => ({
+        id: `ih:${p.id}`,
+        type: 'model',
+        display_name: `InnerHop · ${p.name}`,
+        created_at: createdAt,
+        object: 'model',
+        created: 1700000000,
+        owned_by: 'innerhop',
+      })),
+    ];
     return c.json({
       object: 'list',
-      data: [
-        { id: 'innerhop', object: 'model', created: 1700000000, owned_by: 'innerhop' },
-        ...cfg.presets.map((p) => ({
-          id: `ih:${p.id}`,
-          object: 'model',
-          created: 1700000000,
-          owned_by: 'innerhop',
-        })),
-      ],
+      data: models,
+      first_id: models[0]?.id ?? null,
+      last_id: models[models.length - 1]?.id ?? null,
+      has_more: false,
     });
+  });
+
+  app.post('/v1/messages/count_tokens', async (c) => {
+    const rawBody = await c.req.text();
+    const estimated = Math.max(1, Math.ceil(rawBody.length / 4));
+    return c.json({ input_tokens: estimated });
   });
 
   app.post('/v1/messages', async (c) => {
@@ -304,7 +334,7 @@ export function createOrchestratorServer(
     }
     const requestedModel = typeof body.model === 'string' ? body.model : undefined;
 
-    if (!configStore.shouldOrchestrate(requestedModel)) {
+    if (!isInnerHopLocalKey(headers) && !configStore.shouldOrchestrate(requestedModel)) {
       return forwardBypassRequest('anthropic', rawBody, headers, configStore.getConfig().routing);
     }
 

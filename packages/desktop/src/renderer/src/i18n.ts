@@ -101,9 +101,20 @@ export function localizeHarnessText(
       };
     case 'claude-code':
       return {
-        name: 'Claude Code CLI',
+        name: 'Claude Code CLI / Desktop Code',
         description:
-          'Terminal CLI only (API Key mode, Smart-Split routing). Claude Desktop consumer OAuth app connects directly to Anthropic and ignores custom base URLs.',
+          'One-click configures ~/.claude/settings.json for both terminal CLI and Claude Desktop Code tab (works with GPT + DeepSeek even without an Anthropic key).',
+      };
+    case 'claude-desktop':
+      return {
+        name: 'Claude Desktop (Official Gateway)',
+        description:
+          'One-click switch between InnerHop Gateway and Official Claude Pro (lossless backup of Claude-3p; first-time setup generates an official Import JSON file).',
+        guideSteps: [
+          'Toggle this card ON: InnerHop enables the Developer menu and writes an official import file at ~/.innerhop/claude-desktop-gateway.json.',
+          'First time only: relaunch Claude Desktop → ☰ → Developer → Configure third-party inference → top-right dropdown "Import configuration..." → select that JSON → Apply Changes.',
+          'One-click restore to Official Pro: toggle this card OFF and relaunch Claude Desktop. Next time you want InnerHop, just toggle ON and relaunch (no re-import needed).',
+        ],
       };
     case 'codex':
       return {
@@ -135,7 +146,8 @@ export function localizeHarnessText(
 
 export function localizeHarnessLabel(hint: string, locale: Locale): string {
   const enMap: Record<string, string> = {
-    'claude-code': 'Claude Code CLI',
+    'claude-code': 'Claude Code',
+    'claude-desktop': 'Claude Desktop',
     codex: 'Codex CLI',
     opencode: 'OpenCode',
     dsh: 'DeepSeek Harness (DSH)',
@@ -147,7 +159,8 @@ export function localizeHarnessLabel(hint: string, locale: Locale): string {
     generic: 'External Client',
   };
   const zhMap: Record<string, string> = {
-    'claude-code': 'Claude Code CLI',
+    'claude-code': 'Claude Code',
+    'claude-desktop': 'Claude Desktop',
     codex: 'Codex CLI',
     opencode: 'OpenCode',
     dsh: 'DeepSeek Harness (DSH)',

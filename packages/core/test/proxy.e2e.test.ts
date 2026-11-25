@@ -1196,4 +1196,54 @@ describe('Orchestrator Proxy E2E (Inner-Hop, Escalation, Multi-Protocol)', () =>
     expect(fc!.call_id!.length).toBeLessThanOrEqual(64);
     expect(fco?.call_id).toBe(fc?.call_id);
   });
+
+  it('supports Claude Desktop Gateway model discovery, count_tokens, and innerhop-local auth', async () => {
+    // 1. Dual-compatible GET /v1/models (Anthropic + OpenAI fields)
+    const modelsRes = await fetch(`${proxyUrl}/v1/models`);
+    expect(modelsRes.status).toBe(200);
+    const modelsJson = (await modelsRes.json()) as {
+      has_more: boolean;
+      first_id: string;
+      data: Array<{ id: string; type: string; display_name: string; object: string }>;
+    };
+    expect(modelsJson.has_more).toBe(false);
+    expect(modelsJson.first_id).toBe('innerhop');
+    expect(modelsJson.data[0].type).toBe('model');
+    expect(modelsJson.data[0].display_name).toContain('InnerHop');
+
+    // 2. POST /v1/messages/count_tokens
+    const countRes = await fetch(`${proxyUrl}/v1/messages/count_tokens`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'innerhop',
+        messages: [{ role: 'user', content: 'Hello Claude Desktop Gateway' }],
+      }),
+    });
+    expect(countRes.status).toBe(200);
+    const countJson = (await countRes.json()) as { input_tokens: number };
+    expect(countJson.input_tokens).toBeGreaterThan(0);
+
+    // 3. Even in smart-split mode with a claude-sonnet model name, x-api-key: innerhop-local orchestrates cleanly
+    nextPlannerAction = 'qa';
+    recordedCalls = [];
+    const msgRes = await fetch(`${proxyUrl}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': 'innerhop-local',
+        'x-orchestrator-session': 'claude-desktop-gateway-sess',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        stream: true,
+        messages: [{ role: 'user', content: 'Explain InnerHop' }],
+      }),
+    });
+    expect(msgRes.status).toBe(200);
+    expect(msgRes.headers.get('x-innerhop-routed')).toBe('innerhop');
+    await msgRes.text();
+    expect(recordedCalls).toHaveLength(1);
+    expect(recordedCalls[0].model).toBe('planner-opus');
+  });
 });

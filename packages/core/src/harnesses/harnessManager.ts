@@ -3,7 +3,10 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  renameSync,
+  rmSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -47,13 +50,14 @@ function isRecord(val: unknown): val is Record<string, unknown> {
 
 export class HarnessManager {
   private readonly homeDir: string;
+  private readonly dataDir: string;
   private readonly backupsDir: string;
   private port: number;
 
   constructor(options: HarnessManagerOptions = {}) {
     this.homeDir = options.homeDir ?? homedir();
-    const dataDir = options.dataDir ?? getDefaultDataDir();
-    this.backupsDir = join(dataDir, 'backups');
+    this.dataDir = options.dataDir ?? getDefaultDataDir();
+    this.backupsDir = join(this.dataDir, 'backups');
     this.port = options.port ?? 8787;
     mkdirSync(this.backupsDir, { recursive: true });
   }
@@ -68,6 +72,84 @@ export class HarnessManager {
 
   private getClaudeSettingsPath(): string {
     return join(this.homeDir, '.claude', 'settings.json');
+  }
+
+  private getClaudeDesktopBaseRoot(): string {
+    if (process.platform === 'win32') {
+      return join(this.homeDir, 'AppData', 'Local');
+    }
+    if (process.platform === 'darwin') {
+      return join(this.homeDir, 'Library', 'Application Support');
+    }
+    return join(this.homeDir, '.config');
+  }
+
+  private getClaude3pDir(): string {
+    return join(this.getClaudeDesktopBaseRoot(), 'Claude-3p');
+  }
+
+  private getClaude3pDisabledDir(): string {
+    return join(this.getClaudeDesktopBaseRoot(), 'Claude-3p.innerhop-disabled');
+  }
+
+  private getClaudeGatewayExportPath(): string {
+    return join(this.dataDir, 'claude-desktop-gateway.json');
+  }
+
+  private findClaude1pDataDir(): string | null {
+    const root = this.getClaudeDesktopBaseRoot();
+    if (process.platform === 'win32') {
+      const claudeData = join(root, 'Claude-Data');
+      if (existsSync(claudeData)) {
+        try {
+          const entries = readdirSync(claudeData);
+          const pkgDir = entries.find((e) => e.toLowerCase().startsWith('claude_'));
+          if (pkgDir) return join(claudeData, pkgDir);
+        } catch {
+          // ignore
+        }
+      }
+      const roamingClaude = join(this.homeDir, 'AppData', 'Roaming', 'Claude');
+      if (existsSync(roamingClaude)) return roamingClaude;
+      return null;
+    }
+    const std = join(root, 'Claude');
+    return existsSync(std) ? std : null;
+  }
+
+  private isClaudeDesktopInstalled(): boolean {
+    if (process.platform === 'win32') {
+      const local = this.getClaudeDesktopBaseRoot();
+      const roaming = join(this.homeDir, 'AppData', 'Roaming');
+      return (
+        existsSync(join(local, 'Claude-Data')) ||
+        existsSync(join(local, 'Claude')) ||
+        existsSync(join(local, 'Claude-3p')) ||
+        existsSync(join(roaming, 'Claude'))
+      );
+    }
+    return existsSync(join(this.getClaudeDesktopBaseRoot(), 'Claude')) || existsSync(this.getClaude3pDir());
+  }
+
+  private writeClaudeDesktopGatewayExport(): string {
+    const exportPath = this.getClaudeGatewayExportPath();
+    mkdirSync(dirname(exportPath), { recursive: true });
+    const payload = {
+      inferenceProvider: 'gateway',
+      inferenceCredentialKind: 'static',
+      inferenceGatewayBaseUrl: this.getBaseUrl(),
+      inferenceGatewayApiKey: 'innerhop-local',
+      inferenceGatewayAuthScheme: 'bearer',
+      inferenceGatewayManagedClaudeCode: true,
+      inferenceGatewayAutoModeServerChecks: false,
+      modelDiscoveryEnabled: false,
+      inferenceModels: [
+        { name: 'claude-opus-5', labelOverride: 'InnerHop (Dual-Model)' },
+        { name: 'claude-opus-4-6', labelOverride: 'InnerHop (Opus 4.6 Alias)' },
+      ],
+    };
+    writeFileSync(exportPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+    return exportPath;
   }
 
   private getCodexConfigPath(): string {
@@ -278,15 +360,46 @@ export class HarnessManager {
       },
       {
         id: 'claude-code',
-        name: 'Claude Code CLI',
+        name: 'Claude Code CLI / Desktop Code',
         description:
-          '仅限终端 CLI（API Key 模式，支持智能分流）；Claude Desktop 消费级订阅客户端直连官方 OAuth，无法走本地代理',
+          '一键写入 ~/.claude/settings.json（支持终端 CLI 与 Claude Desktop 内置 Code 标签页，无 Anthropic Key 也可直接调度 GPT + DeepSeek）',
         mode: 'one-click',
-        surface: 'cli-only',
+        surface: 'gui-and-cli',
         installed: isCommandAvailable('claude') || existsSync(dirname(claudePath)),
         enabled: claudeEnabled,
         configPath: claudePath,
         hasBackup: existsSync(this.getBackupMetaPath('claude-code')),
+      },
+      {
+        id: 'claude-desktop',
+        name: 'Claude Desktop (官方 Gateway)',
+        description:
+          existsSync(join(this.getClaude3pDir(), 'configLibrary', '_meta.json'))
+            ? '当前处于 Gateway 模式；点击关闭即可一键复原官方 Claude Pro（保留 3P 配置，重启 Claude Desktop 生效）'
+            : existsSync(this.getClaude3pDisabledDir())
+              ? '检测到已保存的 InnerHop Gateway 配置；点击开启即可一键切回双模型模式（重启 Claude Desktop 生效）'
+              : '首次开启自动启用开发者菜单并生成官方导入文件 claude-desktop-gateway.json（在 Claude 中 Import 一次后即可永远一键切换/复原）',
+        mode: 'one-click',
+        surface: 'gui-and-cli',
+        installed: this.isClaudeDesktopInstalled(),
+        enabled: existsSync(join(this.getClaude3pDir(), 'configLibrary', '_meta.json')),
+        configPath: existsSync(join(this.getClaude3pDir(), 'configLibrary', '_meta.json'))
+          ? this.getClaude3pDir()
+          : this.getClaudeGatewayExportPath(),
+        hasBackup:
+          existsSync(join(this.getClaude3pDir(), 'configLibrary', '_meta.json')) ||
+          existsSync(this.getClaude3pDisabledDir()),
+        copyConfig: {
+          providerLabel: 'Gateway (Official Import JSON)',
+          baseUrl,
+          apiKeyPlaceholder: 'innerhop-local',
+          modelName: 'claude-opus-5',
+        },
+        guideSteps: [
+          `点开本卡片开关：InnerHop 会自动开启 Claude 开发者菜单，并在 ${this.getClaudeGatewayExportPath()} 生成官方导入文件。`,
+          '首次接入：重启 Claude Desktop → 左上角 ☰ → Developer → Configure third-party inference → 右上角下拉选「Import configuration...」导入该 JSON → 点 Apply Changes 重启。',
+          '一键复原官方 Pro：只需关闭本卡片开关并重启 Claude Desktop 即可无损回到官方 Pro；以后再想切回 InnerHop，只需再点开开关并重启即可（无需再导入）。',
+        ],
       },
       {
         id: 'codex',
@@ -360,8 +473,38 @@ export class HarnessManager {
       }
       const env = isRecord(json.env) ? { ...(json.env as Record<string, string>) } : {};
       env.ANTHROPIC_BASE_URL = baseUrl;
+      if (!env.ANTHROPIC_API_KEY && !env.ANTHROPIC_AUTH_TOKEN) {
+        env.ANTHROPIC_AUTH_TOKEN = 'innerhop-local';
+      }
       json.env = env;
       writeFileSync(target, JSON.stringify(json, null, 2), 'utf8');
+    } else if (id === 'claude-desktop') {
+      // 1. Always write/refresh the official importable JSON config file
+      this.writeClaudeDesktopGatewayExport();
+
+      // 2. If a previously disabled Claude-3p profile exists, restore it in 1 click!
+      const c3pDir = this.getClaude3pDir();
+      const disabledDir = this.getClaude3pDisabledDir();
+      if (!existsSync(c3pDir) && existsSync(disabledDir)) {
+        renameSync(disabledDir, c3pDir);
+      }
+
+      // 3. Enable Developer Mode menu in 1P Claude data dir (lossless backup) for first-time import
+      const c1pDir = this.findClaude1pDataDir();
+      if (c1pDir) {
+        const devSettings = join(c1pDir, 'developer_settings.json');
+        this.saveBackupIfNeeded('claude-desktop-dev', devSettings);
+        let devJson: Record<string, unknown> = {};
+        if (existsSync(devSettings)) {
+          try {
+            devJson = JSON.parse(readFileSync(devSettings, 'utf8')) as Record<string, unknown>;
+          } catch {
+            devJson = {};
+          }
+        }
+        devJson.allowDevTools = true;
+        writeFileSync(devSettings, JSON.stringify(devJson, null, 2), 'utf8');
+      }
     } else if (id === 'codex') {
       const target = this.getCodexConfigPath();
       mkdirSync(dirname(target), { recursive: true });
@@ -569,11 +712,29 @@ export class HarnessManager {
           const json = JSON.parse(readFileSync(target, 'utf8')) as Record<string, unknown>;
           if (isRecord(json.env)) {
             delete json.env.ANTHROPIC_BASE_URL;
+            if (json.env.ANTHROPIC_AUTH_TOKEN === 'innerhop-local') {
+              delete json.env.ANTHROPIC_AUTH_TOKEN;
+            }
           }
           writeFileSync(target, JSON.stringify(json, null, 2), 'utf8');
         } catch {
           // ignore
         }
+      }
+    } else if (id === 'claude-desktop') {
+      // Move Claude-3p -> Claude-3p.innerhop-disabled to cleanly restore 1P Official Pro
+      // while preserving the user's sealed 3P config & chats for instant 1-click re-enable.
+      const c3pDir = this.getClaude3pDir();
+      const disabledDir = this.getClaude3pDisabledDir();
+      if (existsSync(c3pDir)) {
+        if (existsSync(disabledDir)) {
+          rmSync(disabledDir, { recursive: true, force: true });
+        }
+        renameSync(c3pDir, disabledDir);
+      }
+      const c1pDir = this.findClaude1pDataDir();
+      if (c1pDir) {
+        this.restoreBackup('claude-desktop-dev', join(c1pDir, 'developer_settings.json'));
       }
     } else if (id === 'codex') {
       const target = this.getCodexConfigPath();
